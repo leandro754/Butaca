@@ -1,5 +1,7 @@
 # Glosario y Explicación del Modelo de Base de Datos (13 Tablas en 3FN) - Butaca
 
+> **Alcance de la demo:** la pasarela de pago y el proveedor KYC son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen minimización de datos, no una certificación.
+
 Este documento proporciona el **glosario conceptual**, la **justificación de diseño relacional (3FN)** y las **respuestas técnicas estructuradas** para defender y explicar el modelo de datos y la seguridad informática del proyecto ante el docente o evaluador.
 
 El esquema canónico formal se encuentra definido en [`butaca.dbml`](../butaca.dbml).
@@ -44,8 +46,8 @@ erDiagram
 
 ### 3. `verificacion_identidad` (Validación KYC obligatoria antes de comprar)
 * **Propósito**: Acredita la identidad real de un usuario antes de permitirle comprar entradas.
-* **Columnas principales**: `id_verificacion` (PK), `id_usuario` (FK UNIQUE), `metodo_verificacion` (`BIOMETRIA_RENAPER`, `DOCUMENTO_DNI`, `OTP_EMAIL`), `estado_verificacion` (`PENDIENTE`, `VERIFICADA`, `RECHAZADA`), `codigo_validacion_kyc` (UNIQUE), `fecha_solicitud`, `fecha_verificacion`.
-* **Justificación 3FN y Seguridad (Ley 25.326)**: No repite `dni_usuario` ni `nombre_usuario` (que ya están en `usuario`). Cumple el principio de minimización de datos sensibles al almacenar únicamente el token criptográfico de validación (`codigo_validacion_kyc`) sin guardar imágenes biométricas crudas.
+* **Columnas principales**: `id_verificacion` (PK), `id_usuario` (FK UNIQUE), `metodo_verificacion` (`BIOMETRIA_RENAPER`, `DOCUMENTO_DNI`, `OTP_EMAIL`), `estado_verificacion` (`PENDIENTE`, `VERIFICADA`, `RECHAZADA`), `codigo_validacion_kyc` (UNIQUE), `observacion_verificacion`, `hash_evidencia_documental`, `hash_selfie`, `proveedor_identidad`, `puntaje_coincidencia`, `fecha_solicitud`, `fecha_verificacion`.
+* **Justificación 3FN y Seguridad (Ley 25.326)**: No repite `dni_usuario` ni `nombre_usuario` (que ya están en `usuario`). Aplica minimización de datos: guarda hashes SHA-256 de las evidencias, proveedor, puntaje y token de validación, pero no las imágenes biométricas ni documentales crudas.
 
 ### 4. `ubicacion` (Recintos físicos)
 * **Propósito**: Representa los lugares físicos donde se llevan a cabo los espectáculos.
@@ -66,10 +68,10 @@ erDiagram
 * **Columnas principales**: `id_compra` (PK), `id_cliente` (FK), `fecha_compra`, `estado_compra` (`PENDIENTE`, `CONFIRMADA`, `CANCELADA`).
 * **Sin redundancias (3FN)**: No almacena `id_evento`, `cantidad` ni `total`. Esos datos derivan de las entradas asociadas a la compra.
 
-### 8. `pago` (Pasarela de Pago desacoplada bajo PCI-DSS)
+### 8. `pago` (Pasarela de Pago desacoplada con minimización de datos)
 * **Propósito**: Registra el procesamiento del cobro a través de una pasarela externa.
-* **Columnas principales**: `id_pago` (PK), `id_compra` (FK), `pasarela_pago` (`MERCADOPAGO`, `STRIPE`, `MODO`, `DEBITO_TOKENIZADO`), `medio_pago` (`TARJETA_CREDITO`, `TARJETA_DEBITO`, `TRANSFERENCIA_CVU`, `DINERO_CUENTA`), `estado_pago` (`PENDIENTE`, `APROBADO`, `RECHAZADO`, `REEMBOLSADO`), `referencia_externa_pago` (UNIQUE), `ultimos_cuatro_digitos`, `fecha_pago`.
-* **Justificación 3FN y PCI-DSS**: No duplica el monto total ni el `id_cliente` (se obtienen desde `compra` y sus `entradas`). Por cumplimiento **PCI-DSS**, jamás almacena el número de tarjeta completo (PAN) ni el código CVV; solo persiste el token/referencia de pasarela y los últimos 4 dígitos.
+* **Columnas principales**: `id_pago` (PK), `id_compra` (FK), `pasarela_pago` (`MERCADOPAGO`, `STRIPE`, `MODO`, `DEBITO_TOKENIZADO`), `medio_pago` (`TARJETA_CREDITO`, `TARJETA_DEBITO`, `TRANSFERENCIA_CVU`, `DINERO_CUENTA`), `estado_pago` (`PENDIENTE`, `APROBADO`, `RECHAZADO`, `REEMBOLSADO`), `referencia_externa_pago` (UNIQUE), `ultimos_cuatro_digitos`, `monto_pago`, `moneda_pago`, `codigo_autorizacion_pago`, `fecha_pago`.
+* **Justificación 3FN y minimización**: La cantidad y el total de la compra se derivan de las entradas. `monto_pago` es un hecho externo: el importe autorizado por la pasarela, que se cruza contra esa suma. No se almacena el número completo de tarjeta (PAN) ni el CVV; solo referencias, últimos cuatro dígitos y datos de autorización. Esto sigue buenas prácticas de PCI-DSS, pero no constituye una certificación de cumplimiento.
 
 ### 9. `comprobante` (Cruce de Información, Firma SHA-256 y Envío Digital)
 * **Propósito**: Respalda fiscal y criptográficamente el cruce exitoso entre identidad verificada, pago aprobado y emisión/envío de entradas.
@@ -102,7 +104,7 @@ erDiagram
 > "En `CompraService.comprarEntrada` implementamos una transacción atómica (`@Transactional`) que cruza 6 verificaciones encadenadas:
 > 1. **Verificación de identidad (KYC)**: Comprueba que el usuario tenga estado `VERIFICADA` en `verificacion_identidad`. Si no está verificado, bloquea la compra y lo registra en `auditoria_seguridad`.
 > 2. **Stock y Concurrencia**: Bloquea el `evento` con `@Version` y valida disponibilidad real.
-> 3. **Pasarela de Pago**: Registra la operación en `pago` con referencia externa única y últimos 4 dígitos (bajo PCI-DSS).
+> 3. **Pasarela de Pago**: Procesa el pago mediante `PagoGateway` (simulado en la demo), valida monto y moneda, y registra la referencia externa y los últimos 4 dígitos.
 > 4. **Emisión Nominal**: Crea cada `entrada` con su UUID y el DNI y nombre del asistente asignado.
 > 5. **Comprobante y Firma Criptográfica SHA-256**: Genera el `comprobante` asociado al `pago`, calculando un hash SHA-256 sobre el ID de compra, DNI del comprador, token KYC, referencia de pago y UUIDs de las entradas, y marca el envío digital como `ENVIADO` junto con la notificación.
 > 6. **Tracking**: Audita el cambio en `historial_estado_entrada` y en `auditoria_seguridad`."

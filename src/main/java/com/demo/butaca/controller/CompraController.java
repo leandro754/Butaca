@@ -2,6 +2,7 @@ package com.demo.butaca.controller;
 
 import com.demo.butaca.dto.CompraRequestDTO;
 import com.demo.butaca.dto.CompraResponseDTO;
+import com.demo.butaca.dto.VerificacionCruceDTO;
 import com.demo.butaca.service.CompraService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,11 @@ public class CompraController {
     @GetMapping("/{id}")
     public CompraResponseDTO obtenerCompra(@PathVariable Long id) {
         return compraService.obtenerCompra(id);
+    }
+
+    @GetMapping("/{id}/verificar-cruce")
+    public VerificacionCruceDTO verificarCruce(@PathVariable Long id) {
+        return compraService.verificarCruce(id);
     }
 
     @GetMapping("/usuario/{id}")

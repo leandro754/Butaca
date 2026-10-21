@@ -7,6 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,6 +28,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> handleOptimisticLock(ObjectOptimisticLockingFailureException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", "El evento fue modificado por otra operacion. Reintente la compra."));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, String>> handleUploadSize(MaxUploadSizeExceededException exception) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(Map.of("error", "La imagen supera el tamaño máximo permitido (5 MB por archivo)"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

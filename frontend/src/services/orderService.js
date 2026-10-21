@@ -67,6 +67,10 @@ export async function getUserOrders(userId) {
   return request(`/compras/usuario/${userId}`);
 }
 
+export async function verifyPurchaseCrossCheck(compraId) {
+  return request(`/compras/${compraId}/verificar-cruce`);
+}
+
 export async function getOrganizerOrders(organizerId) {
   return request(`/compras/organizador/${organizerId}`);
 }

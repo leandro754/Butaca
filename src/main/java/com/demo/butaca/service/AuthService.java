@@ -76,7 +76,7 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Credenciales invalidas"));
 
         if (!passwordEncoder.matches(request.getPasswordUsuario(), usuario.getPasswordUsuario())) {
-            auditoriaService.registrarEvento(
+            auditoriaService.registrarEventoIndependiente(
                     usuario,
                     "LOGIN",
                     "USUARIO",

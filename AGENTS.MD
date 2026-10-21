@@ -27,12 +27,12 @@ El modelo normalizado vigente en 3FN usa estas 13 entidades:
 
 - `rol`: catalogo de roles (`ADMIN`, `ORGANIZADOR`, `CLIENTE`).
 - `usuario`: credenciales, DNI unico, datos personales, estado de cuenta y rol.
-- `verificacion_identidad`: validacion KYC obligatoria antes de comprar (`VERIFICADA`), vinculada a `usuario` sin duplicar DNI ni nombre.
+- `verificacion_identidad`: validacion KYC obligatoria antes de comprar (`VERIFICADA`), vinculada a `usuario` sin duplicar DNI ni nombre; guarda hashes SHA-256 de las evidencias, proveedor y puntaje, nunca las fotos.
 - `ubicacion`: lugares fisicos con direccion, capacidad maxima y estado activo.
 - `categoria`: clasificacion de eventos.
 - `evento`: publicacion, cupo total, precio, categoria, ubicacion y organizador.
 - `compra`: cabecera minima con cliente verificado, fecha y estado.
-- `pago`: transaccion de pasarela desacoplada cumpliendo PCI-DSS (referencia externa y ultimos 4 digitos, sin PAN ni CVV ni monto duplicado).
+- `pago`: transaccion de pasarela desacoplada con referencia externa, ultimos 4 digitos, monto autorizado por la pasarela, moneda y codigo de autorizacion; sin PAN ni CVV. El monto autorizado es un hecho externo que se cruza con la suma de entradas, no un total calculado duplicado.
 - `comprobante`: recibo/factura vinculada a `pago` con firma SHA-256 de cruce de informacion y estado de envio digital.
 - `entrada`: tickets nominales emitidos con UUID unico, DNI/nombre del asistente y precio historico.
 - `historial_estado_entrada`: trazabilidad de emision, uso nominal en puerta y anulacion.
@@ -42,6 +42,8 @@ El modelo normalizado vigente en 3FN usa estas 13 entidades:
 No volver a guardar datos de ubicacion como texto duplicado en `evento` si ya
 existe `id_ubicacion`. No reintroducir `cupos_disponibles`, `cantidad`,
 `total` ni `id_evento` en `compra` o `pago`: esos valores se obtienen desde `entrada`.
+La unica excepcion es `pago.monto_pago`, que registra el importe efectivamente
+autorizado por la pasarela para poder cruzarlo contra la suma de entradas.
 No duplicar `id_compra` ni `id_cliente` en `comprobante` (se obtienen desde `id_pago`).
 
 ## Backend

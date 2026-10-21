@@ -17,6 +17,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -58,6 +59,15 @@ public class Pago extends AuditableEntity {
 
     @Column(name = "ultimos_cuatro_digitos", length = 4)
     private String ultimosCuatroDigitos;
+
+    @Column(name = "monto_pago", precision = 10, scale = 2)
+    private BigDecimal monto;
+
+    @Column(name = "moneda_pago", length = 3)
+    private String moneda;
+
+    @Column(name = "codigo_autorizacion_pago", length = 50)
+    private String codigoAutorizacion;
 
     @Column(name = "fecha_pago", nullable = false)
     private LocalDateTime fechaPago;

@@ -1,12 +1,29 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Button from "../components/ui/Button";
 import { getSelectedOrder } from "../utils/storage";
 import { formatPrice } from "../utils/formatters";
 import TicketPass from "../components/events/TicketPass";
+import { verifyPurchaseCrossCheck } from "../services/orderService";
 
 function ConfirmationPage() {
   const order = getSelectedOrder();
   const confirmation = order?.confirmation;
+  const compraId = confirmation?.idCompra || confirmation?.raw?.id;
+  const [cruce, setCruce] = useState(null);
+
+  useEffect(() => {
+    if (!compraId) return undefined;
+    let activo = true;
+    verifyPurchaseCrossCheck(compraId)
+      .then((resultado) => {
+        if (activo) setCruce(resultado);
+      })
+      .catch(() => {});
+    return () => {
+      activo = false;
+    };
+  }, [compraId]);
 
   if (!order || !confirmation) {
     return (
@@ -54,10 +71,10 @@ function ConfirmationPage() {
             lineHeight: 1.6
           }}
         >
-          <strong>Te enviamos el comprobante y tus entradas por correo electrónico.</strong>
+          <strong>Tu comprobante y tus entradas quedaron registrados en tu cuenta.</strong>
           <div style={{ color: "var(--text-2)", marginTop: 4 }}>
-            Enviamos una copia de tus entradas y el comprobante N°{" "}
-            <strong>{comprobante?.numero_comprobante || "RECIBO"}</strong> a <strong>{compradorEmail}</strong>.
+            Comprobante N°{" "}
+            <strong>{comprobante?.numero_comprobante || "RECIBO"}</strong> asociado a <strong>{compradorEmail}</strong>.
             Recordá llevar tu DNI físico el día del evento para el ingreso.
           </div>
         </div>
@@ -77,7 +94,13 @@ function ConfirmationPage() {
           </div>
           <div>
             <span>Total abonado</span>
-            <strong style={{ color: "var(--primary-2)" }}>{formatPrice(order.total)}</strong>
+            <strong style={{ color: "var(--primary-2)" }}>{formatPrice(pago?.monto ?? order.total)}</strong>
+          </div>
+          <div>
+            <span>Cruce de seguridad</span>
+            <strong style={{ color: cruce?.valida ? "var(--accent)" : "var(--text-2)" }}>
+              {cruce ? (cruce.valida ? "Verificado" : "Revisar") : "Verificando..."}
+            </strong>
           </div>
         </div>
 

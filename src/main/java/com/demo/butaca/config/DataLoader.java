@@ -37,6 +37,7 @@ import com.demo.butaca.repository.RolRepository;
 import com.demo.butaca.repository.UbicacionRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
+import com.demo.butaca.util.CruceHashUtils;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,7 +49,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Configuration
 public class DataLoader {
@@ -100,8 +100,8 @@ public class DataLoader {
 
             asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, admin, "KYC-REN-ADMIN001");
             asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, org, "KYC-REN-ORG00002");
-            asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, cliente, "KYC-REN-CLI00003");
-            asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, ana, "KYC-REN-CLI00004");
+            VerificacionIdentidad kycCliente = asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, cliente, "KYC-REN-CLI00003");
+            VerificacionIdentidad kycAna = asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, ana, "KYC-REN-CLI00004");
 
             List<Evento> eventos = new ArrayList<>();
             if (eventoRepository.count() == 0) {
@@ -153,16 +153,16 @@ public class DataLoader {
             if (compraRepository.count() == 0 && eventos.size() >= 4) {
                 LocalDateTime ahora = LocalDateTime.now();
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(0), cliente, 2,
+                        historialRepository, auditoriaRepository, eventos.get(0), cliente, kycCliente, 2,
                         ahora.minusDays(3).withHour(10).withMinute(15), "PAY-MP-DEMO0001", "BUT-2026-000001");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(1), cliente, 1,
+                        historialRepository, auditoriaRepository, eventos.get(1), cliente, kycCliente, 1,
                         ahora.minusDays(1).withHour(17).withMinute(40), "PAY-MP-DEMO0002", "BUT-2026-000002");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(2), ana, 3,
+                        historialRepository, auditoriaRepository, eventos.get(2), ana, kycAna, 3,
                         ahora.minusDays(2).withHour(19).withMinute(5), "PAY-ST-DEMO0003", "BUT-2026-000003");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(3), ana, 2,
+                        historialRepository, auditoriaRepository, eventos.get(3), ana, kycAna, 2,
                         ahora.minusHours(5), "PAY-MP-DEMO0004", "BUT-2026-000004");
             }
 
@@ -175,7 +175,7 @@ public class DataLoader {
                 crearNotificacionDemo(notificacionRepository, ana, eventos.get(2),
                         "Recordatorio: Hamlet en Sala Negra empieza a las 20:30. Recordá presentar tu DNI físico en puerta.", "RECORDATORIO", false, ahora.minusHours(8));
                 crearNotificacionDemo(notificacionRepository, admin, null,
-                        "Demo inicializada con verificación KYC, pasarela PCI-DSS, comprobantes SHA-256 y tracking de seguridad.", "SISTEMA", false, ahora.minusMinutes(30));
+                        "Demo inicializada con verificación KYC, pasarela simulada, comprobantes SHA-256 y tracking de seguridad.", "SISTEMA", false, ahora.minusMinutes(30));
             }
         };
     }
@@ -215,17 +215,19 @@ public class DataLoader {
         });
     }
 
-    private void asegurarVerificacionKyc(VerificacionIdentidadRepository verificacionRepository,
-                                         AuditoriaSeguridadRepository auditoriaRepository,
-                                         Usuario usuario, String codigoKyc) {
-        if (verificacionRepository.findByUsuarioIdUsuario(usuario.getIdUsuario()).isEmpty()) {
+    private VerificacionIdentidad asegurarVerificacionKyc(VerificacionIdentidadRepository verificacionRepository,
+                                                          AuditoriaSeguridadRepository auditoriaRepository,
+                                                          Usuario usuario, String codigoKyc) {
+        return verificacionRepository.findByUsuarioIdUsuario(usuario.getIdUsuario()).orElseGet(() -> {
             LocalDateTime ahora = LocalDateTime.now().minusDays(5);
             VerificacionIdentidad verificacion = verificacionRepository.save(VerificacionIdentidad.builder()
                     .usuario(usuario)
                     .metodoVerificacion(MetodoVerificacion.BIOMETRIA_RENAPER)
                     .estadoVerificacion(EstadoVerificacion.VERIFICADA)
                     .codigoValidacionKyc(codigoKyc)
-                    .observacionVerificacion("Identidad verificada por padrón biométrico RENAPER")
+                    .observacionVerificacion("Identidad verificada por el simulador documental/biométrico")
+                    .proveedorIdentidad("SIMULADO_RENAPER_DEMO")
+                    .puntajeCoincidencia(new BigDecimal("0.9900"))
                     .fechaSolicitud(ahora)
                     .fechaVerificacion(ahora.plusMinutes(2))
                     .build());
@@ -240,7 +242,8 @@ public class DataLoader {
                     .detalleTracking("Identidad verificada para DNI " + usuario.getDniUsuario() + " (" + codigoKyc + ")")
                     .fechaAuditoria(ahora.plusMinutes(2))
                     .build());
-        }
+            return verificacion;
+        });
     }
 
     private Evento crearEventoDemo(EventoRepository eventoRepository, Usuario organizador, Categoria categoria, Ubicacion ubicacion,
@@ -267,16 +270,17 @@ public class DataLoader {
                                  EntradaRepository entradaRepository,
                                  HistorialEstadoEntradaRepository historialRepository,
                                  AuditoriaSeguridadRepository auditoriaRepository,
-                                 Evento evento, Usuario cliente,
+                                 Evento evento, Usuario cliente, VerificacionIdentidad verificacion,
                                  int cantidad, LocalDateTime fechaCompra,
                                  String refPago, String numComprobante) {
-        Compra compra = Compra.builder()
+        fechaCompra = fechaCompra.withNano(0);
+        Compra compra = compraRepository.save(Compra.builder()
                 .fechaCompra(fechaCompra)
                 .estadoCompra(EstadoCompra.CONFIRMADA)
                 .cliente(cliente)
-                .build();
-        compra = compraRepository.save(compra);
+                .build());
 
+        BigDecimal total = evento.getPrecioEntradaEvento().multiply(BigDecimal.valueOf(cantidad));
         Pago pago = pagoRepository.save(Pago.builder()
                 .compra(compra)
                 .pasarelaPago(PasarelaPago.MERCADOPAGO)
@@ -284,18 +288,13 @@ public class DataLoader {
                 .estadoPago(EstadoPago.APROBADO)
                 .referenciaExternaPago(refPago)
                 .ultimosCuatroDigitos("4242")
+                .monto(total)
+                .moneda("ARS")
+                .codigoAutorizacion("DEMO-" + refPago)
                 .fechaPago(fechaCompra)
                 .build());
 
-        comprobanteRepository.save(Comprobante.builder()
-                .pago(pago)
-                .numeroComprobante(numComprobante)
-                .tipoComprobante(TipoComprobante.RECIBO_DIGITAL)
-                .hashCruceSeguridad(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""))
-                .estadoEnvioComprobante(EstadoEnvio.ENVIADO)
-                .fechaEmisionComprobante(fechaCompra)
-                .build());
-
+        List<Entrada> entradas = new ArrayList<>();
         String nombreTitular = (cliente.getNombreUsuario() + " " + cliente.getApellidoUsuario()).trim();
         for (int i = 0; i < cantidad; i++) {
             String dniNominal = i == 0
@@ -316,6 +315,7 @@ public class DataLoader {
                     .nombreAsistente(nombreNominal)
                     .build();
             entrada = entradaRepository.save(entrada);
+            entradas.add(entrada);
             historialRepository.save(HistorialEstadoEntrada.builder()
                     .entrada(entrada)
                     .estadoNuevoEntrada(EstadoEntrada.CONFIRMADA)
@@ -324,6 +324,16 @@ public class DataLoader {
                     .fechaCambioEntrada(fechaCompra)
                     .build());
         }
+
+        String hashCruce = CruceHashUtils.calcular(compra, verificacion, pago, entradas);
+        comprobanteRepository.save(Comprobante.builder()
+                .pago(pago)
+                .numeroComprobante(numComprobante)
+                .tipoComprobante(TipoComprobante.RECIBO_DIGITAL)
+                .hashCruceSeguridad(hashCruce)
+                .estadoEnvioComprobante(EstadoEnvio.ENVIADO)
+                .fechaEmisionComprobante(fechaCompra)
+                .build());
 
         auditoriaRepository.save(AuditoriaSeguridad.builder()
                 .usuario(cliente)

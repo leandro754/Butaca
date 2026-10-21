@@ -39,15 +39,16 @@ LEFT JOIN verificacion_identidad v ON v.id_usuario = u.id_usuario
 ORDER BY u.id_usuario;
 ```
 
-### B. Ver el Cruce Completo de Compra + Pasarela de Pago (PCI-DSS) + Comprobante (SHA-256)
+### B. Ver el Cruce Completo de Compra + Pasarela de Pago + Comprobante (SHA-256)
 ```sql
 SELECT c.id_compra, u.email_usuario, c.estado_compra,
-       p.pasarela_pago, p.medio_pago, p.estado_pago, p.ultimos_cuatro_digitos, p.referencia_externa_pago,
-       cb.numero_comprobante, cb.estado_envio_entrada, cb.hash_cruce_seguridad
+       p.pasarela_pago, p.medio_pago, p.estado_pago, p.ultimos_cuatro_digitos,
+       p.referencia_externa_pago, p.monto_pago, p.moneda_pago, p.codigo_autorizacion_pago,
+       cb.numero_comprobante, cb.estado_envio_comprobante, cb.hash_cruce_seguridad
 FROM compra c
 JOIN usuario u ON u.id_usuario = c.id_cliente
 JOIN pago p ON p.id_compra = c.id_compra
-JOIN comprobante cb ON cb.id_compra = c.id_compra
+JOIN comprobante cb ON cb.id_pago = p.id_pago
 ORDER BY c.id_compra DESC;
 ```
 

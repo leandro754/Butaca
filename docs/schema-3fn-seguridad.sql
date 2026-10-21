@@ -1,7 +1,9 @@
 -- ============================================================================
 -- PROYECTO BUTACA - ESQUEMA RELACIONAL NORMALIZADO (1FN, 2FN, 3FN, FNBC)
--- Cumplimiento de Seguridad Informática: PCI-DSS, KYC (Ley 25.326), SHA-256,
--- Bloqueo Optimista (@Version), Entrada Nominal y Auditoría Inmutable.
+-- Seguridad Informática: minimización de datos inspirada en PCI-DSS, KYC
+-- (Ley 25.326), SHA-256, bloqueo optimista (@Version), entrada nominal y
+-- auditoría. La integración KYC/pago del código es simulada: este esquema no
+-- implica certificación PCI-DSS ni conexión real con RENAPER.
 -- Total: 13 Tablas
 -- ============================================================================
 
@@ -31,6 +33,10 @@ CREATE TABLE verificacion_identidad (
     estado_verificacion VARCHAR(20) NOT NULL,
     codigo_validacion_kyc VARCHAR(80) NOT NULL UNIQUE,
     observacion_verificacion VARCHAR(250),
+    hash_evidencia_documental VARCHAR(64),
+    hash_selfie VARCHAR(64),
+    proveedor_identidad VARCHAR(60),
+    puntaje_coincidencia DECIMAL(5, 4),
     fecha_solicitud TIMESTAMP NOT NULL,
     fecha_verificacion TIMESTAMP,
     CONSTRAINT fk_verificacion_usuario FOREIGN KEY (id_usuario) REFERENCES usuario(id_usuario)
@@ -85,6 +91,9 @@ CREATE TABLE pago (
     estado_pago VARCHAR(20) NOT NULL,
     referencia_externa_pago VARCHAR(80) NOT NULL UNIQUE,
     ultimos_cuatro_digitos VARCHAR(4) NOT NULL,
+    monto_pago DECIMAL(10, 2),
+    moneda_pago VARCHAR(3) DEFAULT 'ARS',
+    codigo_autorizacion_pago VARCHAR(50),
     fecha_pago TIMESTAMP NOT NULL,
     CONSTRAINT fk_pago_compra FOREIGN KEY (id_compra) REFERENCES compra(id_compra)
 );

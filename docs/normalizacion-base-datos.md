@@ -1,8 +1,10 @@
 # Verificación de Normalización (1FN, 2FN, 3FN y BCNF) y Seguridad Informática - Butaca
 
+> **Alcance de la demo:** la pasarela de pago y el proveedor de identidad son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen decisiones de minimización de datos, no una certificación.
+
 Este documento detalla el modelo relacional definitivo de **Butaca** (13 entidades normalizadas), incorporando todas las correcciones solicitadas por la cátedra:
 1. **Verificación de Identidad Obligatoria antes de comprar (KYC)** (`verificacion_identidad` + `usuario.dni_usuario`).
-2. **Pasarela de Pago desacoplada bajo estándar PCI-DSS** (`pago`).
+2. **Pasarela de Pago desacoplada con minimización de datos inspirada en PCI-DSS** (`pago`).
 3. **Método de Cruce de Información al comprar (Verificación + Pago + Envío de Entrada + Comprobante con firma SHA-256)** (`comprobante` + `CompraService.comprarEntrada`).
 4. **Entradas Nominales por Asistente** (`entrada.dni_asistente_entrada`, `entrada.nombre_asistente_entrada`).
 5. **Tracking y Auditoría de Datos de Seguridad Informática** (`auditoria_seguridad` + `historial_estado_entrada`).
@@ -214,20 +216,20 @@ No existen dependencias transitivas ($PK \to X \to Y$) ni atributos calculados r
 ### A. ¿Cómo verificar la identidad de alguien en la app (obligatorio antes de comprar)?
 Se implementó un flujo de **KYC (*Know Your Customer*) obligatorio**:
 - **En la Base de Datos**: Tabla `verificacion_identidad` vinculada a `usuario` y restricción `UNIQUE` sobre `usuario.dni_usuario`.
-- **Regla de Seguridad y Privacidad (Ley 25.326)**: En lugar de almacenar fotografías crudas del rostro o del frente/dorso del DNI en la base de datos (lo cual representa un riesgo crítico ante filtraciones), el sistema valida contra el servicio biométrico/documental (`BIOMETRIA_RENAPER`, `DOCUMENTO_DNI` o `OTP_EMAIL`) y persiste únicamente el **token criptográfico de validación** (`codigo_validacion_kyc`), el estado (`VERIFICADA`) y el timestamp.
+- **Regla de Seguridad y Privacidad (Ley 25.326)**: En lugar de almacenar fotografías crudas del rostro o del frente/dorso del DNI en la base de datos (lo cual representa un riesgo crítico ante filtraciones), el sistema valida contra el proveedor (`BIOMETRIA_RENAPER`, `DOCUMENTO_DNI` o `OTP_EMAIL`) y persiste únicamente el **token de validación** (`codigo_validacion_kyc`), el estado, el proveedor, el puntaje y los **hashes SHA-256** de las evidencias. Las imágenes se procesan en memoria y no se guardan.
 - **Bloqueo en Backend (`CompraService`)**: Antes de iniciar cualquier compra, `CompraService.comprarEntrada` consulta `verificacion_identidad`. Si el usuario no posee estado `VERIFICADA`, el backend **rechaza la transacción**, registra el intento bloqueado en `auditoria_seguridad` y exige completar la verificación.
 
-### B. Pasarela de Pago cumpliendo Seguridad Informática (PCI-DSS)
+### B. Pasarela de Pago desacoplada y minimización de datos (inspirada en PCI-DSS)
 - **En la Base de Datos**: Tabla `pago` vinculada a `compra`.
-- **Cumplimiento PCI-DSS (*Payment Card Industry Data Security Standard*)**:
+- **Buenas prácticas de PCI-DSS (sin certificar cumplimiento)**:
   - **Prohibición absoluta de almacenar PAN y CVV**: La base de datos jamás recibe ni persiste los 16 dígitos de la tarjeta ni el código de seguridad CVV/CVC.
-  - **Tokenización e Idempotencia**: Se almacena únicamente la `referencia_externa_pago` (`UNIQUE`, ej. `PAY-MP-...`) provista por la pasarela (`MERCADOPAGO`, `STRIPE`, `MODO`) y los `ultimos_cuatro_digitos` (`VARCHAR(4)`) con fines meramente identificatorios en el recibo del cliente.
+  - **Tokenización e Idempotencia**: Se almacena únicamente la `referencia_externa_pago` (`UNIQUE`, ej. `PAY-MP-...`) provista por la pasarela (`MERCADOPAGO`, `STRIPE`, `MODO`), los `ultimos_cuatro_digitos` (`VARCHAR(4)`) y el monto/moneda autorizados por el proveedor para el cruce.
 
 ### C. Método que cruza la información al comprar la entrada
 En [`CompraService.java`](../src/main/java/com/demo/butaca/service/CompraService.java) el método `@Transactional comprarEntrada(CompraRequestDTO)` ejecuta de manera atómica (ACID) el cruce de 6 eslabones:
 1. **Cruce de Identidad**: Verifica que `usuario` esté `ACTIVO` y su `verificacion_identidad` esté `VERIFICADA`.
 2. **Cruce de Cupo y Concurrencia**: Bloquea optimistamente `evento` (`@Version`) y comprueba que `cupo_total_evento - entradas_vigentes >= cantidad`.
-3. **Cruce con Pasarela de Pago**: Registra y aprueba el `pago` con referencia externa única.
+3. **Cruce con Pasarela de Pago**: Procesa el pago mediante `PagoGateway` (simulado en la demo) y valida que el monto y la moneda aprobados coincidan con el total calculado.
 4. **Cruce de Nominatividad**: Emite cada `entrada` con su `UUID` único, `precio_pagado_entrada` congelado y los datos nominales de cada asistente (`dni_asistente_entrada`, `nombre_asistente_entrada`).
 5. **Cruce de Comprobante y Envío Digital**: Genera la fila en `comprobante` con un **Hash criptográfico SHA-256** (`hash_cruce_seguridad`) calculado sobre `id_compra | dni_comprador | token_kyc | referencia_pago | UUIDs_entradas | timestamp`, marcando `estado_envio_comprobante = ENVIADO` y disparando la `notificacion` al cliente.
 6. **Cruce de Auditoría**: Registra la operación en `historial_estado_entrada` y en `auditoria_seguridad`. Si cualquiera de los pasos falla, toda la transacción hace *rollback*.

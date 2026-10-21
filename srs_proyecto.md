@@ -14,6 +14,8 @@
 ### **Fecha:** 1 de Septiembre de 2026  
 ### **Estándar:** Basado en IEEE 830 y SIA Académico  
 
+> **Alcance de la demo:** la pasarela de pago y el proveedor de identidad son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen minimización de datos.
+
 ---
 
 ## **1. Introducción**
@@ -59,7 +61,7 @@ El sistema admite dos perfiles de ejecución:
 *   **Autenticación Uniforme y Verificación de Identidad (KYC):** Registro e inicio de sesión seguro con contraseñas encriptadas con **BCrypt**, DNI único por usuario y validación de identidad obligatoria (`verificacion_identidad`) antes de habilitar la compra de entradas.
 *   **Gestor de Ubicaciones Físicas:** Registro de establecimientos físicos (`ubicacion`) con control estricto de capacidad máxima para evitar la asignación de eventos que excedan la capacidad logística.
 *   **Ciclo de Vida de Eventos:** Creación de publicaciones en estado `BORRADOR`, publicación abierta al público (`PUBLICADO`) o anulación del espectáculo por fuerza mayor (`CANCELADO`).
-*   **Pasarela de Pago Tokenizada (PCI-DSS) y Comprobante con Cruce SHA-256:** Procesamiento del pago en tabla dedicada (`pago`) almacenando únicamente tokens de idempotencia y últimos 4 dígitos (sin PAN ni CVV), emitiendo un `comprobante` con firma criptográfica SHA-256 que cruza comprador verificado, pago y tickets.
+*   **Pasarela de Pago Tokenizada (minimización inspirada en PCI-DSS) y Comprobante con Cruce SHA-256:** Procesamiento del pago mediante un adaptador (`PagoGateway`, simulado en la demo) en tabla dedicada (`pago`), almacenando referencias externas, monto/moneda autorizados y últimos 4 dígitos (sin PAN ni CVV), emitiendo un `comprobante` con firma criptográfica SHA-256 que cruza comprador verificado, pago y tickets.
 *   **Entradas Nominales y Congelamiento de Precios Históricos:** La compra genera una cabecera mínima (`compra`), congela el precio pagado real (`entrada.precio_pagado_entrada`) y asigna nominalmente cada ticket al DNI y nombre del asistente real (`dni_asistente_entrada`, `nombre_asistente_entrada`).
 *   **Doble Nivel de Trazabilidad y Tracking de Seguridad:** Cada transición del ticket se registra en `historial_estado_entrada` y toda operación sensible del sistema se audita de forma inmutable en `auditoria_seguridad`.
 *   **Buzón de Notificaciones Internas:** Envío automático de notificaciones a clientes y organizadores sobre verificaciones KYC, envío de comprobantes y entradas nominales o cancelaciones de espectáculos.
@@ -74,7 +76,7 @@ El sistema admite dos perfiles de ejecución:
 
 ### **2.4 Restricciones**
 *   **Entorno Local Académico:** El modo demo utiliza H2 en memoria y destruye/recrea los datos en cada reinicio para asegurar un estado semilla limpio (`DataLoader`).
-*   **Pasarela de Pago Desacoplada bajo PCI-DSS:** Las transacciones registran la operación en `pago` mediante referencias externas tokenizadas y últimos 4 dígitos, prohibiendo almacenar numeración completa de tarjetas (PAN) o códigos CVV en la base de datos.
+*   **Pasarela de Pago Desacoplada (minimización de datos):** Las transacciones registran la operación en `pago` mediante referencias externas y últimos 4 dígitos, prohibiendo almacenar numeración completa de tarjetas (PAN) o códigos CVV en la base de datos. La demo usa un adaptador simulado y no procesa pagos reales.
 *   **Conectividad de Red:** Al ser una arquitectura desacoplada Frontend-Backend, es requisito que el backend exponga la API bajo el puerto `8080` (con fallback de CORS) y el frontend consuma en el puerto `5173`.
 
 ### **2.5 Suposiciones y Dependencias**
@@ -101,7 +103,7 @@ El sistema admite dos perfiles de ejecución:
 
 ### **3.2 Requerimientos No Funcionales**
 
-*   **RNF1 (Seguridad Informática, PCI-DSS y Ley 25.326):** Ningún DTO expone hashes de contraseña. La tabla `pago` cumple PCI-DSS (sin almacenar PAN ni CVV) y `verificacion_identidad` cumple minimización de datos biométricos almacenando únicamente el token de validación KYC.
+*   **RNF1 (Seguridad Informática y Ley 25.326):** Ningún DTO expone hashes de contraseña. La tabla `pago` no almacena PAN ni CVV y aplica minimización de datos; el proyecto no afirma certificación PCI-DSS. `verificacion_identidad` guarda únicamente token, proveedor, puntaje y hashes SHA-256 de las evidencias, sin imágenes crudas.
 *   **RNF2 (Normalización Relacional de Base de Datos en 3FN):** La persistencia se realiza bajo un esquema relacional normalizado en **Tercera Forma Normal (3FN)** compuesto por 13 tablas en singular: `rol`, `usuario`, `verificacion_identidad`, `ubicacion`, `categoria`, `evento`, `compra`, `pago`, `comprobante`, `entrada`, `historial_estado_entrada`, `notificacion` y `auditoria_seguridad`.
 *   **RNF3 (Usabilidad y Compatibilidad API):** Las respuestas JSON de la API REST del backend usan nomenclatura en formato **snake_case** (mediante anotaciones `@JsonProperty`), mientras que el código de Java mantiene la convención interna de **camelCase**.
 *   **RNF4 (Facilidad de Instalación y Demo):** La aplicación cuenta con un script automatizado (`./scripts/demo.sh`) capaz de arrancar backend, frontend e inicializar datos semilla de prueba de forma transparente con un solo comando.

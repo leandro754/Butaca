@@ -2,126 +2,195 @@ package com.demo.butaca.service;
 
 import com.demo.butaca.dto.NotificacionDTO;
 import com.demo.butaca.dto.VerificacionIdentidadDTO;
+import com.demo.butaca.integration.identidad.ProveedorIdentidad;
+import com.demo.butaca.integration.identidad.ResultadoVerificacionIdentidad;
+import com.demo.butaca.integration.identidad.SolicitudVerificacionIdentidad;
 import com.demo.butaca.model.EstadoUsuario;
 import com.demo.butaca.model.EstadoVerificacion;
 import com.demo.butaca.model.MetodoVerificacion;
-import com.demo.butaca.model.Rol;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.model.VerificacionIdentidad;
-import com.demo.butaca.repository.RolRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import com.demo.butaca.util.HashUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.Locale;
+import java.util.Optional;
 
 @Service
 public class VerificacionIdentidadService {
 
     private final VerificacionIdentidadRepository verificacionRepository;
     private final UsuarioRepository usuarioRepository;
-    private final RolRepository rolRepository;
     private final NotificacionService notificacionService;
     private final AuditoriaSeguridadService auditoriaService;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final ProveedorIdentidad proveedorIdentidad;
 
     public VerificacionIdentidadService(VerificacionIdentidadRepository verificacionRepository,
                                         UsuarioRepository usuarioRepository,
-                                        RolRepository rolRepository,
                                         NotificacionService notificacionService,
-                                        AuditoriaSeguridadService auditoriaService) {
+                                        AuditoriaSeguridadService auditoriaService,
+                                        ProveedorIdentidad proveedorIdentidad) {
         this.verificacionRepository = verificacionRepository;
         this.usuarioRepository = usuarioRepository;
-        this.rolRepository = rolRepository;
         this.notificacionService = notificacionService;
         this.auditoriaService = auditoriaService;
+        this.proveedorIdentidad = proveedorIdentidad;
     }
 
+    /**
+     * Verifica la identidad de un usuario existente. No crea cuentas, no
+     * asigna contraseñas por defecto y no persiste las imágenes: solo guarda
+     * hashes SHA-256 de las evidencias para trazabilidad.
+     */
     @Transactional
-    public VerificacionIdentidadDTO verificarIdentidad(VerificacionIdentidadDTO request) {
-        if (request.getUsuarioId() == null && (request.getEmailUsuario() == null || request.getEmailUsuario().isBlank())) {
+    public VerificacionIdentidadDTO verificarIdentidad(VerificacionIdentidadDTO request,
+                                                       byte[] fotoDni,
+                                                       String fotoDniContentType,
+                                                       byte[] selfie,
+                                                       String selfieContentType) {
+        if (request == null || request.getUsuarioId() == null) {
             throw new IllegalArgumentException("El id de usuario es obligatorio para verificar identidad");
         }
-        Usuario usuario = resolverUsuario(request);
 
-        String dni = request.getDniUsuario() != null && !request.getDniUsuario().isBlank()
-                ? request.getDniUsuario().trim()
-                : usuario.getDniUsuario();
-        if (dni == null || dni.isBlank() || dni.length() < 6) {
-            throw new IllegalArgumentException("Debe proporcionar un número de DNI/Documento válido para verificar su identidad");
+        Usuario usuario = usuarioRepository.findById(request.getUsuarioId())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        if (!EstadoUsuario.ACTIVO.equals(usuario.getEstadoUsuario())) {
+            throw new IllegalStateException("La cuenta de usuario no está activa");
         }
 
-        usuario.setDniUsuario(dni);
-        final Usuario usuarioGuardado = usuarioRepository.save(usuario);
+        if (request.getEmailUsuario() != null && !request.getEmailUsuario().isBlank()
+                && !request.getEmailUsuario().trim().equalsIgnoreCase(usuario.getEmailUsuario())) {
+            auditarRechazo(usuario, "El email informado no coincide con la cuenta");
+            throw new IllegalArgumentException("El email informado no coincide con la cuenta");
+        }
+
+        String dni = normalizarDni(request.getDniUsuario() != null && !request.getDniUsuario().isBlank()
+                ? request.getDniUsuario()
+                : usuario.getDniUsuario());
+
+        if (dni.length() < 7 || dni.length() > 8) {
+            auditarRechazo(usuario, "DNI inválido");
+            throw new IllegalArgumentException("Debe proporcionar un DNI de 7 u 8 dígitos");
+        }
+
+        String dniRegistrado = normalizarDni(usuario.getDniUsuario());
+        if (!dniRegistrado.isBlank() && !dniRegistrado.equals(dni)) {
+            auditarRechazo(usuario, "El DNI informado no coincide con el DNI registrado en la cuenta");
+            throw new IllegalArgumentException("El DNI informado no coincide con el DNI registrado en la cuenta");
+        }
+
+        Optional<VerificacionIdentidad> existente = verificacionRepository.findByUsuarioIdUsuario(usuario.getIdUsuario());
+
+        // Si ya está verificada con el mismo DNI, la operación es idempotente y
+        // no se regenera el código KYC que forma parte del hash del comprobante.
+        if (existente.isPresent()
+                && EstadoVerificacion.VERIFICADA.equals(existente.get().getEstadoVerificacion())
+                && dni.equals(dniRegistrado)) {
+            return toDTO(existente.get());
+        }
+
+        Optional<Usuario> otroUsuario = usuarioRepository.findByDniUsuario(dni)
+                .filter(otro -> !otro.getIdUsuario().equals(usuario.getIdUsuario()));
+        if (otroUsuario.isPresent()) {
+            auditarRechazo(usuario, "El DNI ya está asociado a otra cuenta");
+            throw new IllegalArgumentException("El DNI ya está asociado a otra cuenta");
+        }
 
         MetodoVerificacion metodo = parsearMetodo(request.getMetodoVerificacion());
-        LocalDateTime ahora = LocalDateTime.now();
+        SolicitudVerificacionIdentidad solicitud = new SolicitudVerificacionIdentidad(
+                usuario.getIdUsuario(),
+                dni,
+                valorODefault(request.getNombreUsuario(), usuario.getNombreUsuario()),
+                valorODefault(request.getApellidoUsuario(), usuario.getApellidoUsuario()),
+                usuario.getNombreUsuario(),
+                usuario.getApellidoUsuario(),
+                usuario.getEmailUsuario(),
+                request.getNumeroTramite(),
+                metodo.name(),
+                fotoDni,
+                fotoDniContentType,
+                selfie,
+                selfieContentType
+        );
 
-        VerificacionIdentidad verificacion = verificacionRepository.findByUsuarioIdUsuario(usuarioGuardado.getIdUsuario())
-                .orElseGet(() -> VerificacionIdentidad.builder()
-                        .usuario(usuarioGuardado)
-                        .fechaSolicitud(ahora)
-                        .build());
+        ResultadoVerificacionIdentidad resultado;
+        try {
+            resultado = proveedorIdentidad.verificar(solicitud);
+        } catch (RuntimeException ex) {
+            auditarRechazo(usuario, "Error al comunicarse con el proveedor de identidad");
+            throw new IllegalStateException("No se pudo completar la verificación de identidad. Intentá nuevamente.");
+        }
+
+        if (resultado == null || resultado.codigo() == null || resultado.codigo().isBlank()) {
+            auditarRechazo(usuario, "El proveedor de identidad no devolvió un resultado válido");
+            throw new IllegalStateException("El proveedor de identidad no devolvió un resultado válido");
+        }
+
+        LocalDateTime ahora = LocalDateTime.now().withNano(0);
+
+        VerificacionIdentidad verificacion = existente.orElseGet(() -> VerificacionIdentidad.builder()
+                .usuario(usuario)
+                .fechaSolicitud(ahora)
+                .build());
 
         verificacion.setMetodoVerificacion(metodo);
-        verificacion.setEstadoVerificacion(EstadoVerificacion.VERIFICADA);
-        verificacion.setCodigoValidacionKyc("KYC-" + metodo.name().substring(0, 3) + "-"
-                + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-        verificacion.setObservacionVerificacion("Identidad validada satisfactoriamente contra padrón documental/biométrico");
+        verificacion.setEstadoVerificacion(resultado.aprobado()
+                ? EstadoVerificacion.VERIFICADA
+                : EstadoVerificacion.RECHAZADA);
+        verificacion.setCodigoValidacionKyc(resultado.codigo());
+        verificacion.setObservacionVerificacion(truncar(resultado.observacion(), 255));
+        verificacion.setProveedorIdentidad(resultado.proveedor());
+        verificacion.setPuntajeCoincidencia(resultado.puntaje());
+        verificacion.setHashEvidenciaDocumental(HashUtils.sha256(fotoDni));
+        verificacion.setHashSelfie(HashUtils.sha256(selfie));
         if (verificacion.getFechaSolicitud() == null) {
             verificacion.setFechaSolicitud(ahora);
         }
         verificacion.setFechaVerificacion(ahora);
         verificacion = verificacionRepository.save(verificacion);
 
+        if (resultado.aprobado()) {
+            usuario.setDniUsuario(dni);
+            usuarioRepository.save(usuario);
+        }
+
         notificacionService.crearNotificacion(NotificacionDTO.builder()
-                .usuarioId(usuarioGuardado.getIdUsuario())
-                .mensaje("Tu identidad (DNI " + dni + ") fue verificada con éxito. Ya estás habilitado para comprar entradas nominales.")
+                .usuarioId(usuario.getIdUsuario())
+                .mensaje(resultado.aprobado()
+                        ? "Tu identidad (DNI " + dni + ") fue verificada con éxito. Ya estás habilitado para comprar entradas nominales."
+                        : "No pudimos verificar tu identidad: " + resultado.observacion())
                 .tipo("VERIFICACION")
                 .fechaEnvio(ahora)
                 .build());
 
-        auditoriaService.registrarEvento(
-                usuarioGuardado,
-                "VERIFICACION_KYC",
-                "VERIFICACION_IDENTIDAD",
-                verificacion.getIdVerificacion(),
-                "EXITOSO",
-                "Identidad verificada mediante " + metodo.name() + " (Token KYC: " + verificacion.getCodigoValidacionKyc() + ")"
-        );
+        if (resultado.aprobado()) {
+            auditoriaService.registrarEvento(
+                    usuario,
+                    "VERIFICACION_KYC",
+                    "VERIFICACION_IDENTIDAD",
+                    verificacion.getIdVerificacion(),
+                    "EXITOSO",
+                    "Identidad verificada mediante " + metodo.name()
+                            + " por " + resultado.proveedor()
+                            + " (Token KYC: " + verificacion.getCodigoValidacionKyc() + ")"
+            );
+        } else {
+            auditoriaService.registrarEventoIndependiente(
+                    usuario,
+                    "VERIFICACION_KYC",
+                    "VERIFICACION_IDENTIDAD",
+                    verificacion.getIdVerificacion(),
+                    "RECHAZADO",
+                    "Verificación rechazada por " + resultado.proveedor() + ": " + resultado.observacion()
+            );
+        }
 
         return toDTO(verificacion);
-    }
-
-    private Usuario resolverUsuario(VerificacionIdentidadDTO request) {
-        if (request.getUsuarioId() != null) {
-            Usuario porId = usuarioRepository.findById(request.getUsuarioId()).orElse(null);
-            if (porId != null) {
-                return porId;
-            }
-        }
-        if (request.getEmailUsuario() != null && !request.getEmailUsuario().isBlank()) {
-            String email = request.getEmailUsuario().trim().toLowerCase();
-            Usuario porEmail = usuarioRepository.findByEmailUsuarioIgnoreCase(email).orElse(null);
-            if (porEmail != null) {
-                return porEmail;
-            }
-            Rol rolCliente = rolRepository.findByNombre("CLIENTE")
-                    .orElseGet(() -> rolRepository.save(Rol.builder().nombre("CLIENTE").build()));
-            Usuario nuevo = new Usuario();
-            nuevo.setNombreUsuario(request.getNombreUsuario() != null && !request.getNombreUsuario().isBlank() ? request.getNombreUsuario().trim() : "Cliente");
-            nuevo.setApellidoUsuario(request.getApellidoUsuario() != null && !request.getApellidoUsuario().isBlank() ? request.getApellidoUsuario().trim() : "Butaca");
-            nuevo.setEmailUsuario(email);
-            nuevo.setDniUsuario(request.getDniUsuario());
-            nuevo.setPasswordUsuario(passwordEncoder.encode("cliente123"));
-            nuevo.setRol(rolCliente);
-            nuevo.setEstadoUsuario(EstadoUsuario.ACTIVO.name());
-            return usuarioRepository.save(nuevo);
-        }
-        throw new IllegalArgumentException("Usuario no encontrado");
     }
 
     @Transactional(readOnly = true)
@@ -151,26 +220,57 @@ public class VerificacionIdentidadService {
                 .orElse(false);
     }
 
+    private void auditarRechazo(Usuario usuario, String motivo) {
+        auditoriaService.registrarEventoIndependiente(
+                usuario,
+                "VERIFICACION_KYC",
+                "VERIFICACION_IDENTIDAD",
+                usuario.getIdUsuario(),
+                "RECHAZADO",
+                motivo
+        );
+    }
+
     private MetodoVerificacion parsearMetodo(String metodoStr) {
         if (metodoStr == null || metodoStr.isBlank()) {
             return MetodoVerificacion.BIOMETRIA_RENAPER;
         }
         try {
-            return MetodoVerificacion.valueOf(metodoStr.trim().toUpperCase());
+            return MetodoVerificacion.valueOf(metodoStr.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             return MetodoVerificacion.BIOMETRIA_RENAPER;
         }
+    }
+
+    private String normalizarDni(String dni) {
+        return dni == null ? "" : dni.replaceAll("\\D", "");
+    }
+
+    private String valorODefault(String valor, String defecto) {
+        return valor == null || valor.isBlank() ? defecto : valor.trim();
+    }
+
+    private String truncar(String value, int max) {
+        if (value == null || value.length() <= max) {
+            return value;
+        }
+        return value.substring(0, max);
     }
 
     public VerificacionIdentidadDTO toDTO(VerificacionIdentidad entidad) {
         return VerificacionIdentidadDTO.builder()
                 .idVerificacion(entidad.getIdVerificacion())
                 .usuarioId(entidad.getUsuario() == null ? null : entidad.getUsuario().getIdUsuario())
+                .emailUsuario(entidad.getUsuario() == null ? null : entidad.getUsuario().getEmailUsuario())
                 .dniUsuario(entidad.getUsuario() == null ? null : entidad.getUsuario().getDniUsuario())
                 .metodoVerificacion(entidad.getMetodoVerificacion() == null ? null : entidad.getMetodoVerificacion().name())
                 .estadoVerificacion(entidad.getEstadoVerificacion() == null ? null : entidad.getEstadoVerificacion().name())
                 .codigoValidacionKyc(entidad.getCodigoValidacionKyc())
                 .observacionVerificacion(entidad.getObservacionVerificacion())
+                .hashEvidenciaDocumental(entidad.getHashEvidenciaDocumental())
+                .hashSelfie(entidad.getHashSelfie())
+                .proveedorIdentidad(entidad.getProveedorIdentidad())
+                .puntajeCoincidencia(entidad.getPuntajeCoincidencia())
                 .fechaSolicitud(entidad.getFechaSolicitud())
                 .fechaVerificacion(entidad.getFechaVerificacion())
                 .build();

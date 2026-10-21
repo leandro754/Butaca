@@ -1,320 +1,250 @@
-# Butaca — Plataforma de Gestión de Eventos y Venta de Entradas Nominales
+# Butaca - Plataforma de Eventos y Entradas Nominales
 
-Sistema web full-stack (**Spring Boot + React + JPA**) para la gestión de espectáculos, verificación de identidad obligatoria (**KYC**), pasarela de pagos bajo normativa **PCI-DSS**, emisión de **entradas nominales con QR + DNI**, cruce transaccional con firma de integridad **SHA-256** y bitácora de **auditoría de seguridad**.
+Sistema full-stack (**Spring Boot + React + JPA**) para gestionar eventos, validar identidad (KYC), procesar un pago y emitir entradas nominales con QR + DNI. Incluye un cruce de seguridad entre identidad, precio, pago y datos de cada asistente, con comprobante SHA-256 y auditoría.
 
----
-
-## 📚 Documentación y Diagramas del Proyecto
-
-- 📊 **Diagrama Entidad-Relación Editable (Draw.io):** [`diagrama Butaca.drawio`](diagrama%20Butaca.drawio) / [`diagrama Butaca.drawio.xml`](diagrama%20Butaca.drawio.xml)
-- 🗂️ **Modelo DBML (dbdiagram.io):** [`butaca.dbml`](butaca.dbml)
-- 📐 **Justificación de 1FN, 2FN, 3FN y Seguridad:** [`docs/normalizacion-base-datos.md`](docs/normalizacion-base-datos.md)
-- 📖 **Glosario de las 13 Tablas y Preguntas de Defensa:** [`docs/glosario-y-modelo-base-de-datos.md`](docs/glosario-y-modelo-base-de-datos.md)
-- 🎤 **Plan de Exposición de 10 Minutos:** [`docs/plan-exposicion-10-minutos.md`](docs/plan-exposicion-10-minutos.md)
-- 🧭 **Guía Rápida de Presentación y Consultas SQL H2:** [`docs/guia-presentacion.md`](docs/guia-presentacion.md)
-- 📋 **Especificación de Requisitos de Software (SRS):** [`srs_proyecto.md`](srs_proyecto.md)
+> **Estado de las integraciones:** la pasarela de pago y el proveedor de identidad son **simulados** para la demo. No se afirma cumplimiento PCI-DSS ni integración real con RENAPER. Para conectar proveedores reales hay que implementar los adaptadores `PagoGateway` y `ProveedorIdentidad`, obtener credenciales y cumplir los requisitos legales/contractuales correspondientes.
 
 ---
 
-## ✅ Correcciones del Profesor Implementadas
+## Qué se implementó
 
-1. **Verificación de Identidad Obligatoria antes de Comprar (`verificacion_identidad`):**
-   - Ningún usuario puede adquirir entradas sin haber validado previamente su identidad (**KYC** mediante validación biométrica/documental simulada con RENAPER).
-   - Cumple con la **Ley 25.326 de Protección de Datos Personales**: no almacena fotos crudas del rostro ni del DNI, sino el estado (`VERIFICADA`), el método empleado y el token de validación (`codigo_validacion_kyc`).
-2. **Pasarela de Pago Integrada al Modelo bajo PCI-DSS (`pago`):**
-   - Modela el procesamiento con pasarelas (`MERCADOPAGO`, `STRIPE`, `MODO`) y medios de pago (`TARJETA_CREDITO`, `TARJETA_DEBITO`, `BILLETERA_VIRTUAL`).
-   - Cumple estrictamente **PCI-DSS**: jamás persiste los 16 dígitos de la tarjeta (PAN) ni el código CVV; únicamente almacena los `ultimos_cuatro_digitos` y el token `referencia_externa_pago`.
-3. **Método Transaccional de Cruce de Información (`CompraService.comprarEntrada`):**
-   - Operación atómica (`@Transactional`) que cruza en tiempo real:
-     1. Identidad `VERIFICADA` del comprador (`verificacion_identidad`).
-     2. Disponibilidad real del espectáculo y control de concurrencia con bloqueo optimista `@Version` (`evento`).
-     3. Aprobación del cobro en la pasarela (`pago`).
-     4. Emisión de tickets nominales individuales (`entrada` + `historial_estado_entrada`).
-     5. Generación del comprobante electrónico con **firma criptográfica SHA-256** (`comprobante`) y envío de confirmación (`notificacion`).
-     6. Registro de auditoría en la bitácora de seguridad (`auditoria_seguridad`).
-4. **Entrada Nominal Óptima (`entrada`):**
-   - Cada ticket individual emitido posee `codigo_unico_entrada` (QR), `nombre_asistente_entrada` y `dni_asistente_entrada`.
-   - Permite que un comprador verificado compre entradas para sí mismo y acompañantes asignando el nombre y DNI real de cada asistente, erradicando la reventa y habilitando el **control en puerta por QR + DNI físico**.
-5. **Trackeo de Datos e Inmutabilidad (`auditoria_seguridad` + `historial_estado_entrada`):**
-   - Bitácora doble *append-only*: `historial_estado_entrada` audita cada cambio de estado de cada ticket (`CONFIRMADA`, `USADA`, `ANULADA`), mientras que `auditoria_seguridad` registra logins, verificaciones KYC, compras aprobadas/bloqueadas, cambios de rol y lecturas en puerta con fecha/hora e IP.
-6. **Separación de Vistas y Permisos por Rol (Principio de Mínimo Privilegio):**
-   - **Registro público:** Solo permite crear cuentas con rol `CLIENTE` (e incluye la solicitud *"Sumá tu organización"* en el pie de página para revisión del administrador).
-   - **Vista Cliente:** Muestra un checkout limpio (validación biométrica RENAPER + tarjeta interactiva) y entradas listas para presentar en puerta, ocultando hashes técnicos internos.
-   - **Vista Organizador:** Incluye validador de acceso en puerta (**Escáner QR + verificación de DNI nominal**) y gestión de eventos propios.
-   - **Vista Administrador:** Permite gestionar usuarios, promover cuentas a `ORGANIZADOR` y auditar la tabla de cruce técnico de compras (`SHA-256`, tokens de pasarela y bitácora de seguridad).
+### 1. KYC con DNI, foto y selfie
 
----
+- El usuario debe existir: la verificación **no crea cuentas** ni asigna contraseñas por defecto.
+- Se envían por multipart:
+  - `usuario_id`, `dni_usuario`, `numero_tramite`.
+  - `foto_dni` y `selfie` como imágenes.
+- `ProveedorIdentidadSimulado` valida formato de DNI, presencia/tipo de imagen y coincidencia entre el nombre declarado y el de la cuenta.
+- Las imágenes se procesan en memoria. **No se persisten**: solo se guardan hashes SHA-256, proveedor, puntaje, estado y código KYC.
+- Un rechazo queda registrado en `verificacion_identidad` y en `auditoria_seguridad`; no se borra al lanzar el error de negocio.
+- Si la cuenta ya está verificada con el mismo DNI, la operación es idempotente para no romper el hash de comprobantes ya emitidos.
 
-## 🗄️ Diagrama Entidad-Relación Completo (13 Tablas en 3FN)
+### 2. Pasarela de pago con adaptador
 
-```mermaid
-erDiagram
-    ROL ||--o{ USUARIO : "asigna (1:N)"
-    USUARIO ||--o| VERIFICACION_IDENTIDAD : "valida KYC (1:1)"
-    USUARIO ||--o{ AUDITORIA_SEGURIDAD : "es auditado en (1:N)"
-    USUARIO ||--o{ EVENTO : "organiza (1:N)"
-    UBICACION ||--o{ EVENTO : "aloja (1:N)"
-    CATEGORIA ||--o{ EVENTO : "clasifica (1:N)"
-    USUARIO ||--o{ COMPRA : "realiza (1:N)"
-    COMPRA ||--|| PAGO : "procesa en pasarela (1:1)"
-    COMPRA ||--|| COMPROBANTE : "respalda con firma (1:1)"
-    EVENTO ||--o{ ENTRADA : "emite tickets (1:N)"
-    COMPRA ||--o{ ENTRADA : "agrupa tickets nominales (1:N)"
-    ENTRADA ||--o{ HISTORIAL_ESTADO_ENTRADA : "audita estados (1:N)"
-    USUARIO ||--o{ NOTIFICACION : "recibe avisos (1:N)"
-    EVENTO ||--o{ NOTIFICACION : "origina avisos (1:N)"
+- La compra usa `PagoGateway`; la implementación incluida es `PagoSimuladoGateway`.
+- El total se calcula **en el servidor** como `precio del evento × cantidad`.
+- Cada `Entrada` guarda `precio_pagado` con el precio histórico del evento.
+- El `Pago` guarda `monto`, `moneda`, `referencia_externa`, `codigo_autorizacion` y solo los últimos cuatro dígitos.
+- Si el monto aprobado por la pasarela no coincide con el total calculado, la compra se bloquea.
+- Para probar un rechazo en la demo, enviar `token_pago` con un valor que empiece con `RECHAZ` (por ejemplo `RECHAZAR-DEMO`).
 
-    ROL {
-        bigint id_rol PK
-        varchar nombre_rol UK "ADMIN | ORGANIZADOR | CLIENTE"
-    }
+### 3. Cruce de información y entrada nominal
 
-    USUARIO {
-        bigint id_usuario PK
-        varchar nombre_usuario
-        varchar apellido_usuario
-        varchar email_usuario UK
-        varchar dni_usuario UK
-        varchar password_usuario "Hash BCrypt"
-        varchar telefono_usuario
-        varchar estado_usuario "ACTIVO | INACTIVO | BLOQUEADO"
-        bigint id_rol FK
-    }
+`CompraService.comprarEntrada` valida, en una sola transacción:
 
-    VERIFICACION_IDENTIDAD {
-        bigint id_verificacion PK
-        bigint id_usuario FK, UK "Relacion 1:1 con USUARIO"
-        varchar metodo_verificacion "BIOMETRIA_RENAPER | DOCUMENTO_DNI"
-        varchar estado_verificacion "PENDIENTE | VERIFICADA | RECHAZADA"
-        varchar codigo_validacion_kyc UK
-        varchar observacion_verificacion
-        timestamp fecha_solicitud
-        timestamp fecha_verificacion
-    }
+1. Usuario existente, activo y con KYC `VERIFICADA`.
+2. Email/DNI del comprador coherentes con la cuenta.
+3. Evento publicado, precio válido y cupo disponible.
+4. Exactamente `cantidad` asistentes, cada uno con nombre y DNI de 7 u 8 dígitos, sin DNI repetidos.
+5. Pago aprobado y monto exacto.
+6. Emisión de una entrada nominal por asistente.
+7. Comprobante con hash SHA-256 que cruza compra, DNI del comprador, código KYC, referencia/monto del pago, UUIDs de entradas y datos nominales.
+8. Auditoría del cruce exitoso.
 
-    UBICACION {
-        bigint id_ubicacion PK
-        varchar nombre_ubicacion UK
-        varchar direccion_ubicacion
-        int capacidad_maxima_ubicacion
-        boolean activa_ubicacion
-    }
+El endpoint `GET /api/compras/{id}/verificar-cruce` recalcula el hash y devuelve checks de integridad:
 
-    CATEGORIA {
-        bigint id_categoria PK
-        varchar nombre_categoria UK
-        varchar descripcion_categoria
-    }
+- `compra_confirmada`
+- `kyc_verificada`
+- `pago_aprobado`
+- `monto_pago_coincide`
+- `precio_unitario_coincide`
+- `entradas_nominales`
+- `hash_comprobante_coincide`
 
-    EVENTO {
-        bigint id_evento PK
-        varchar titulo_evento
-        varchar descripcion_evento
-        timestamp fecha_inicio_evento
-        decimal precio_actual_evento
-        int cupo_total_evento
-        varchar estado_evento "BORRADOR | PUBLICADO | CANCELADO"
-        varchar imagen_url_evento
-        bigint version_evento "Bloqueo Optimista @Version"
-        bigint id_organizador FK
-        bigint id_categoria FK
-        bigint id_ubicacion FK
-    }
+### 4. Auditoría de seguridad
 
-    COMPRA {
-        bigint id_compra PK
-        bigint id_cliente FK
-        timestamp fecha_compra
-        varchar estado_compra "PENDIENTE | CONFIRMADA | CANCELADA"
-    }
+- Los eventos exitosos se guardan dentro de la transacción de negocio.
+- Los rechazos/bloqueos (login fallido, compra sin KYC, pago rechazado, KYC rechazado) usan una transacción independiente (`REQUIRES_NEW`) para que el error no borre la evidencia.
+- La IP se obtiene del request (`X-Forwarded-For` o `remoteAddr`) y no está hardcodeada.
 
-    PAGO {
-        bigint id_pago PK
-        bigint id_compra FK, UK "Relacion 1:1 con COMPRA"
-        varchar pasarela_pago "MERCADOPAGO | STRIPE | MODO"
-        varchar medio_pago "TARJETA_CREDITO | DEBITO | BILLETERA"
-        varchar estado_pago "APROBADO | RECHAZADO | REEMBOLSADO"
-        varchar referencia_externa_pago UK "Token de Pasarela"
-        varchar ultimos_cuatro_digitos "PCI-DSS (sin CVV ni PAN)"
-        timestamp fecha_pago
-    }
+### 5. Frontend
 
-    COMPROBANTE {
-        bigint id_comprobante PK
-        bigint id_compra FK, UK "Relacion 1:1 con COMPRA"
-        varchar numero_comprobante UK "Ej: CMP-20261017-A1B2C3"
-        varchar tipo_comprobante "RECIBO_DIGITAL | FACTURA_B"
-        varchar hash_cruce_seguridad UK "Firma SHA-256 del cruce"
-        varchar estado_envio_entrada "ENVIADO | PENDIENTE | FALLIDO"
-        timestamp fecha_emision_comprobante
-    }
-
-    ENTRADA {
-        bigint id_entrada PK
-        bigint id_evento FK
-        bigint id_compra FK
-        varchar codigo_unico_entrada UK "UUID unico para QR"
-        varchar dni_asistente_entrada "Nominalidad: DNI"
-        varchar nombre_asistente_entrada "Nominalidad: Titular"
-        decimal precio_pagado_entrada "Precio historico congelado"
-        varchar estado_entrada "CONFIRMADA | USADA | ANULADA"
-        timestamp fecha_emision_entrada
-    }
-
-    HISTORIAL_ESTADO_ENTRADA {
-        bigint id_historial_estado_entrada PK
-        bigint id_entrada FK
-        varchar estado_anterior_entrada
-        varchar estado_nuevo_entrada
-        varchar motivo_cambio_entrada
-        timestamp fecha_cambio_entrada
-    }
-
-    NOTIFICACION {
-        bigint id_notificacion PK
-        bigint id_usuario_destino FK
-        bigint id_evento_relacionado FK
-        varchar tipo_notificacion
-        varchar mensaje_notificacion
-        boolean leida_notificacion
-        timestamp fecha_creacion_notificacion
-    }
-
-    AUDITORIA_SEGURIDAD {
-        bigint id_auditoria PK
-        bigint id_usuario FK
-        varchar accion_auditoria "REGISTRO | KYC | CRUCE_COMPRA | VALIDACION_PUERTA"
-        varchar entidad_afectada
-        varchar id_registro_afectado
-        varchar resultado_operacion "EXITOSO | BLOQUEADO | RECHAZADO"
-        varchar ip_origen
-        varchar detalle_cruce
-        timestamp fecha_evento_auditoria
-    }
-```
+- Checkout con carga de foto del DNI y selfie.
+- Envío `multipart/form-data` real.
+- Si el KYC es rechazado, se muestra el motivo y no se habilita el pago.
+- La confirmación consulta el cruce de integridad y muestra el monto efectivamente autorizado.
+- La UI aclara que la pasarela y el KYC son simulados y que no se envían al backend el número completo de tarjeta ni el CVV.
 
 ---
 
-## 🔄 ¿Cómo interactúa la Página Web con el Diagrama paso a paso?
+## Modelo de datos y migración pendiente
 
-### 1. Registro de Usuario (`/registro`)
-1. El usuario completa sus datos en la web.
-2. `AuthService` consulta **`ROL`** para asignar obligatoriamente el rol `CLIENTE` (impidiendo escalamiento de privilegios desde el formulario público).
-3. Se persiste el usuario en **`USUARIO`** con su contraseña cifrada mediante `BCrypt`.
-4. Se graba el alta en **`AUDITORIA_SEGURIDAD`** (`accion_auditoria = REGISTRO_USUARIO`).
+El modelo actual ya incluye los campos nuevos. En la demo H2 el esquema se recrea con `spring.jpa.hibernate.ddl-auto=create-drop`.
 
-### 2. Navegación y Filtro por Categorías (`/` y `/buscar?categoria=...`)
-1. Al abrir el catálogo o usar el menú desplegable **Categorías** del Navbar, el frontend consulta `GET /api/eventos`.
-2. `EventoService` une **`EVENTO`** con **`CATEGORIA`** y **`UBICACION`** (obteniendo dirección y capacidad sin redundancia 3FN) y calcula el cupo disponible restando las filas activas (`CONFIRMADA` y `USADA`) en **`ENTRADA`**.
+Campos agregados:
 
-### 3. Verificación de Identidad Obligatoria KYC (`/checkout/:eventoId` — Paso 1)
-1. Antes de habilitar el pago, el checkout consulta `GET /api/verificacion-identidad/usuario/{id}` sobre **`VERIFICACION_IDENTIDAD`**.
-2. Si el usuario aún no está verificado, completa el asistente biométrico/documental (RENAPER).
-3. `VerificacionIdentidadService` valida que el `dni_usuario` no pertenezca a otra cuenta en **`USUARIO`**, crea o actualiza la fila en **`VERIFICACION_IDENTIDAD`** con `estado_verificacion = VERIFICADA` y `codigo_validacion_kyc`, y registra la validación en **`AUDITORIA_SEGURIDAD`**.
+- `verificacion_identidad`: `hash_evidencia_documental`, `hash_selfie`, `proveedor_identidad`, `puntaje_coincidencia`.
+- `pago`: `monto_pago`, `moneda_pago`, `codigo_autorizacion_pago`.
 
-### 4. Método de Cruce de Información al Comprar (`POST /api/compras` — Pasos 2 y 3)
-Al presionar **"FINALIZAR LA COMPRA"**, `CompraService.comprarEntrada()` ejecuta una **única transacción ACID (`@Transactional`)** que recorre **8 tablas**:
-1. **Cruce de Identidad:** Comprueba en **`USUARIO`** y **`VERIFICACION_IDENTIDAD`** que la cuenta esté `ACTIVO` y `VERIFICADA`. Si no cumple, aborta la compra y registra `CRUCE_COMPRA_BLOQUEADO` en **`AUDITORIA_SEGURIDAD`**.
-2. **Cruce de Stock y Concurrencia:** Bloquea optimistamente la fila en **`EVENTO`** (`@Version`) y cuenta en **`ENTRADA`** que existan butacas disponibles.
-3. **Cabecera Comercial:** Inserta la orden en **`COMPRA`** (`estado_compra = CONFIRMADA`).
-4. **Pasarela de Pago (PCI-DSS):** Procesa el cobro y registra en **`PAGO`** la `pasarela_pago`, `medio_pago`, `referencia_externa_pago` y solo los `ultimos_cuatro_digitos` (`estado_pago = APROBADO`).
-5. **Emisión de Entradas Nominales:** Por cada asistente, inserta una fila en **`ENTRADA`** con su `codigo_unico_entrada` (UUID), `nombre_asistente_entrada`, `dni_asistente_entrada` y `precio_pagado_entrada`, y crea su primer registro en **`HISTORIAL_ESTADO_ENTRADA`**.
-6. **Comprobante con Firma SHA-256 y Envío:** Calcula el `hash_cruce_seguridad` (`SHA-256` de compra + cliente + DNI + evento + referencia de pago + monto + fecha), guarda el recibo en **`COMPROBANTE`** con `estado_envio_entrada = ENVIADO` y emite el aviso en **`NOTIFICACION`**.
-7. **Trackeo de Seguridad:** Registra el cruce exitoso en **`AUDITORIA_SEGURIDAD`** (`CRUCE_COMPRA_EXITOSO`).
+Para una base PostgreSQL existente, el script de migración está en:
 
-### 5. Validación en Puerta por el Organizador (`/organizador`)
-1. El organizador ingresa el código QR del ticket y el DNI físico presentado por el asistente en la puerta.
-2. `EntradaService.usarEntrada()` busca el ticket en **`ENTRADA`**, verifica que esté `CONFIRMADA` y **compara el `dni_asistente_entrada` nominal con el DNI presentado**.
-3. Si coinciden, actualiza **`ENTRADA`** a `USADA`, inserta la transición en **`HISTORIAL_ESTADO_ENTRADA`** (`CONFIRMADA -> USADA`) y registra la lectura en **`AUDITORIA_SEGURIDAD`**. Si el DNI no coincide o el QR ya fue utilizado, rechaza el ingreso y audita la anomalía.
+- [`docs/migraciones/V2__kyc_pago_seguridad.sql`](docs/migraciones/V2__kyc_pago_seguridad.sql)
+
+Ese script es para ejecutar cuando se decida migrar. No se ejecuta automáticamente en la demo. Los comprobantes históricos conservan su hash original; si se quiere que el endpoint de cruce los valide, hay que reemitirlos o definir una estrategia de migración de hashes.
+
+Documentación adicional:
+
+- [`butaca.dbml`](butaca.dbml) - modelo DBML actualizado.
+- [`docs/normalizacion-base-datos.md`](docs/normalizacion-base-datos.md)
+- [`docs/glosario-y-modelo-base-de-datos.md`](docs/glosario-y-modelo-base-de-datos.md)
+- [`docs/guia-presentacion.md`](docs/guia-presentacion.md)
 
 ---
 
-## 🛡️ Cumplimiento de Formas Normales y Seguridad Informática
-
-| Criterio | Implementación en Butaca |
-| --- | --- |
-| **1FN (Atómico)** | Cada atributo contiene un único valor atómico. Una compra de $N$ entradas genera $N$ filas independientes en `entrada`, cada una con su propio titular, DNI y QR. |
-| **2FN (Dependencia Funcional Completa)** | Todas las tablas poseen clave primaria simple (`BIGINT`) y sus atributos dependen íntegramente de dicha clave. |
-| **3FN y FNBC (Sin Dependencias Transitivas)** | • `rol`, `categoria` y `ubicacion` están separados en tablas maestras.<br>• `compra` no duplica cantidad ni monto total (se calculan desde `entrada.precio_pagado_entrada`).<br>• `pago` y `comprobante` no duplican el monto ni el `id_cliente` (se obtienen por `JOIN` con `compra` y `entrada`).<br>• `evento` no persiste `cupos_disponibles` como columna redundante. |
-| **PCI-DSS (Seguridad en Medios de Pago)** | Jamás se almacena el PAN completo (16 dígitos) ni el CVV. Solo se persisten `ultimos_cuatro_digitos` y el token `referencia_externa_pago`. |
-| **Integridad Criptográfica** | Contraseñas hasheadas con `BCrypt` y comprobantes sellados con `SHA-256` (`hash_cruce_seguridad`). |
-| **Control de Concurrencia** | Bloqueo optimista `@Version` en `Evento` (`OPTIMISTIC_FORCE_INCREMENT`) dentro de transacciones `@Transactional` para impedir sobreventa. |
-
----
-
-## 🚀 Requisitos y Ejecución Rápida
+## Ejecución rápida
 
 ### Requisitos
-- **Java 17** (`JAVA_HOME` configurado)
-- **Node.js >= 20** y **pnpm** (solo si se desea recompilar el frontend; el build estático ya está incluido en `src/main/resources/static`)
 
-### Opción 1: Iniciar en Windows con doble clic (Modo Demo H2)
-Ejecutar el archivo [`iniciar-windows.bat`](iniciar-windows.bat) o desde PowerShell:
+- Java 17.
+- Node.js >= 20.19 y pnpm >= 11.3 solo si se recompila el frontend.
+
+### Demo H2 (backend + frontend estático)
 
 ```powershell
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
 ```
 
-Una vez iniciado, abrir en el navegador:
-- **Aplicación Web Completa:** `http://localhost:8080`
-- **API REST:** `http://localhost:8080/api`
-- **Consola Base de Datos H2:** `http://localhost:8080/h2-console`
-  - **JDBC URL:** `jdbc:h2:mem:butaca_demo`
-  - **User Name:** `sa`
-  - **Password:** *(dejar vacío)*
+- Aplicación: `http://localhost:8080`
+- API: `http://localhost:8080/api`
+- H2 Console: `http://localhost:8080/h2-console`
+  - JDBC URL: `jdbc:h2:mem:butaca_demo`
+  - Usuario: `sa`
+  - Password: vacío
 
-### Opción 2: Levantar Backend (8080) + Frontend con Hot-Reload (5173)
+### Frontend con hot-reload
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
 ```
 
-### 🔑 Credenciales de Prueba Precargadas (`DataLoader`)
+### Credenciales de prueba
 
-| Rol | Email | Contraseña | Qué permite probar |
-| --- | --- | --- | --- |
-| **Cliente** | `cliente@butaca.com` | `cliente123` | Explorar catálogo, filtrar por categorías, verificar identidad KYC (RENAPER), comprar entradas nominales y ver mis tickets QR. |
-| **Organizador** | `org@butaca.com` | `org123` | Crear/publicar/cancelar eventos y **validar acceso en puerta con QR + DNI nominal**. |
-| **Administrador** | `admin@butaca.com` | `admin123` | Gestionar ubicaciones y categorías, **cambiar roles de usuarios (`CLIENTE` ↔ `ORGANIZADOR`)** y auditar la tabla técnica de cruce de compras (`SHA-256`, pasarela y bitácora). |
+| Rol | Email | Contraseña |
+| --- | --- | --- |
+| Cliente | `cliente@butaca.com` | `cliente123` |
+| Organizador | `org@butaca.com` | `org123` |
+| Administrador | `admin@butaca.com` | `admin123` |
 
----
-
-## 🔌 Endpoints Principales de la API REST
-
-### Autenticación e Identidad (KYC)
-- `POST /api/auth/register` — Registro público de cuentas `CLIENTE`.
-- `POST /api/auth/login` — Inicio de sesión con validación `BCrypt`.
-- `GET /api/verificacion-identidad/usuario/{usuarioId}` — Consulta estado KYC del usuario.
-- `POST /api/verificacion-identidad/verificar` — Ejecuta la validación KYC obligatoria antes de comprar.
-
-### Catálogo y Eventos
-- `GET /api/eventos` — Lista eventos publicados con disponibilidad calculada.
-- `GET /api/eventos/{id}` — Detalle de un espectáculo.
-- `POST /api/eventos` / `PUT /api/eventos/{id}` — Creación y edición por organizador.
-- `PUT /api/eventos/{id}/publicar` / `PUT /api/eventos/{id}/cancelar` — Ciclo de vida del evento.
-
-### Compras, Pasarela de Pago y Entradas Nominales
-- `POST /api/compras` — **Método transaccional de cruce de información** (KYC + Stock `@Version` + Pago PCI-DSS + Emisión Nominal + Comprobante `SHA-256` + Notificación + Auditoría).
-- `GET /api/compras/{id}` / `GET /api/compras/usuario/{id}` / `GET /api/compras/organizador/{id}`
-- `GET /api/entradas/validar/{codigo}` — Consulta estado y titularidad nominal de un QR en puerta.
-- `PUT /api/entradas/{id}/usar?dniPresentado={dni}` — Consume la entrada en puerta validando coincidencia de DNI.
-
-### Administración y Auditoría de Seguridad
-- `GET /api/admin/dashboard` / `GET /api/admin/stats` — Métricas e historial de compras cruzadas.
-- `GET /api/admin/usuarios` / `PUT /api/admin/usuarios/{id}/rol` — Gestión de cuentas y asignación del rol `ORGANIZADOR`.
-- `GET /api/admin/auditoria` — Bitácora inmutable de seguridad (`auditoria_seguridad`).
-- `GET /api/admin/categorias` / `POST /api/admin/categorias`
-- `GET /api/admin/ubicaciones` / `POST /api/admin/ubicaciones`
+Los usuarios demo ya tienen KYC verificado. Para probar el flujo KYC completo, registrar una cuenta nueva y subir una imagen de DNI y una selfie.
 
 ---
 
-## 🧪 Ejecución de Pruebas Automatizadas
+## Endpoints principales
+
+### Autenticación
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+
+### Identidad / KYC
+
+- `GET /api/verificaciones/usuario/{usuarioId}`
+- `POST /api/verificaciones` - `multipart/form-data`:
+  - `usuario_id`
+  - `email_usuario`
+  - `nombre_usuario`
+  - `apellido_usuario`
+  - `dni_usuario`
+  - `numero_tramite`
+  - `metodo_verificacion`
+  - `foto_dni` (archivo)
+  - `selfie` (archivo)
+
+### Eventos
+
+- `GET /api/eventos`
+- `GET /api/eventos/{id}`
+- `POST /api/eventos`
+- `PUT /api/eventos/{id}`
+- `PUT /api/eventos/{id}/publicar`
+- `PUT /api/eventos/{id}/cancelar`
+
+### Compras y pago
+
+- `POST /api/compras`
+- `GET /api/compras/{id}`
+- `GET /api/compras/{id}/verificar-cruce`
+- `GET /api/compras/usuario/{id}`
+- `GET /api/compras/organizador/{id}`
+
+Ejemplo de request de compra:
+
+```json
+{
+  "evento_id": 1,
+  "usuario_id": 2,
+  "email_usuario": "cliente@butaca.com",
+  "dni_usuario": "42850123",
+  "cantidad": 2,
+  "pasarela_pago": "MERCADOPAGO",
+  "medio_pago": "TARJETA_CREDITO",
+  "ultimos_cuatro_digitos": "4242",
+  "tipo_comprobante": "RECIBO_DIGITAL",
+  "token_pago": "TOKEN-DEMO",
+  "asistentes": [
+    { "dni_asistente": "42850123", "nombre_asistente": "Juan Perez" },
+    { "dni_asistente": "43999888", "nombre_asistente": "Lucia Fernandez" }
+  ]
+}
+```
+
+### Entradas y validación en puerta
+
+- `GET /api/entradas/validar/{codigo}`
+- `PUT /api/entradas/{id}/usar`
+
+### Administración
+
+- `GET /api/admin/dashboard`
+- `GET /api/admin/stats`
+- `GET /api/admin/auditoria`
+- `GET /api/admin/compras`
+- `GET /api/admin/usuarios`
+- `PUT /api/admin/usuarios/{id}`
+- `PUT /api/admin/usuarios/{id}/estado`
+- `PUT /api/admin/usuarios/{id}/rol`
+- `DELETE /api/admin/usuarios/{id}`
+- `GET /api/admin/categorias`
+- `POST /api/admin/categorias`
+- `GET /api/admin/ubicaciones`
+- `POST /api/admin/ubicaciones`
+
+---
+
+## Pruebas
 
 ```powershell
 .\mvnw.cmd test
 ```
 
-Las pruebas de integración en [`ButacaApplicationTests.java`](src/test/java/com/demo/butaca/ButacaApplicationTests.java) verifican automáticamente:
-1. Filtrado del catálogo público por disponibilidad real.
-2. Bloqueo de seguridad cuando un usuario intenta comprar sin verificación de identidad KYC.
-3. Cruce transaccional completo de compra (emisión de entradas nominales con DNI por asistente, pago PCI-DSS, comprobante con hash `SHA-256`, incremento de `@Version` e historial).
-4. Validación en puerta con DNI nominal y rechazo ante DNI incorrecto o segundo intento de uso.
+Las pruebas cubren:
+
+1. Catálogo público con disponibilidad.
+2. Cruce válido de un comprobante demo.
+3. Compra nominal con precio calculado, pago y hash.
+4. Bloqueo de compra sin KYC y habilitación posterior.
+5. KYC sin usuario existente (no crea cuentas).
+6. KYC con foto inválida y auditoría persistente.
+7. KYC con DNI distinto al registrado, sin verificar la cuenta y con auditoría.
+8. Login fallido con auditoría persistente.
+9. Pago rechazado sin emitir entradas y con auditoría independiente.
+10. Verificación del cruce de integridad.
+
+Compilar frontend:
+
+```powershell
+cd frontend
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
+```
+
+---
+
+## Privacidad y alcance
+
+- No se persisten fotos del DNI ni selfies.
+- No se persisten PAN ni CVV; solo los últimos cuatro dígitos.
+- La identidad y el pago son simulados: no hay conexión real con RENAPER ni con una pasarela.
+- La pasarela simulada no cobra. En un adaptador real, una autorización aprobada que no supere la validación de monto/moneda debe anularse o reembolsarse; este flujo demo no implementa esa compensación.
+- La autenticación actual es de demo (usuario en localStorage) y no reemplaza un esquema de sesiones/tokens de producción.
+- Para producción se requiere: proveedor KYC autorizado, pasarela tokenizada, HTTPS, gestión de secretos, autorización por roles y revisión legal de datos personales.

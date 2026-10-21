@@ -87,17 +87,35 @@ export async function registerUser(userData) {
   return normalizeAuthUser(response);
 }
 
-export async function verifyUserIdentity({ usuarioId, emailUsuario, nombreUsuario, apellidoUsuario, dniUsuario, metodoVerificacion }) {
+export async function verifyUserIdentity({
+  usuarioId,
+  emailUsuario,
+  nombreUsuario,
+  apellidoUsuario,
+  dniUsuario,
+  numeroTramite,
+  metodoVerificacion,
+  fotoDni,
+  selfie
+}) {
+  if (!fotoDni || !selfie) {
+    throw new Error("Necesitás adjuntar la foto del DNI y la selfie para verificar tu identidad");
+  }
+
+  const formData = new FormData();
+  formData.append("usuario_id", String(usuarioId));
+  formData.append("email_usuario", emailUsuario || "");
+  formData.append("nombre_usuario", nombreUsuario || "");
+  formData.append("apellido_usuario", apellidoUsuario || "");
+  formData.append("dni_usuario", dniUsuario);
+  formData.append("numero_tramite", numeroTramite || "");
+  formData.append("metodo_verificacion", metodoVerificacion || "BIOMETRIA_RENAPER");
+  formData.append("foto_dni", fotoDni);
+  formData.append("selfie", selfie);
+
   return request("/verificaciones", {
     method: "POST",
-    body: JSON.stringify({
-      usuario_id: usuarioId,
-      email_usuario: emailUsuario || "",
-      nombre_usuario: nombreUsuario || "",
-      apellido_usuario: apellidoUsuario || "",
-      dni_usuario: dniUsuario,
-      metodo_verificacion: metodoVerificacion || "BIOMETRIA_RENAPER"
-    })
+    body: formData
   });
 }
 

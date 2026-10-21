@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -31,6 +32,9 @@ public class VerificacionIdentidadDTO {
     @JsonProperty("dni_usuario")
     private String dniUsuario;
 
+    @JsonProperty("numero_tramite")
+    private String numeroTramite;
+
     @JsonProperty("metodo_verificacion")
     private String metodoVerificacion;
 
@@ -42,6 +46,18 @@ public class VerificacionIdentidadDTO {
 
     @JsonProperty("observacion_verificacion")
     private String observacionVerificacion;
+
+    @JsonProperty("hash_evidencia_documental")
+    private String hashEvidenciaDocumental;
+
+    @JsonProperty("hash_selfie")
+    private String hashSelfie;
+
+    @JsonProperty("proveedor_identidad")
+    private String proveedorIdentidad;
+
+    @JsonProperty("puntaje_coincidencia")
+    private BigDecimal puntajeCoincidencia;
 
     @JsonProperty("fecha_solicitud")
     private LocalDateTime fechaSolicitud;

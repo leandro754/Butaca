@@ -1,12 +1,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 export async function request(path, options = {}) {
+  const { headers: optionHeaders, ...rest } = options;
+  const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData;
+  const headers = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(optionHeaders || {})
+  };
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    },
-    ...options
+    ...rest,
+    headers
   });
 
   if (!response.ok) {

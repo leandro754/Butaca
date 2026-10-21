@@ -7,17 +7,22 @@ Project butaca {
   Modelo relacional normalizado en Tercera Forma Normal (3FN) y Forma Normal de
   Boyce-Codd (BCNF) para el proyecto académico Butaca.
   Gestiona usuarios, verificación de identidad (KYC), eventos, ubicaciones,
-  categorías, compras, pasarela de pagos (PCI-DSS), comprobantes con cruce
-  criptográfico, entradas nominales, historial de tickets, notificaciones y
-  auditoría/tracking de seguridad.
+  categorías, compras, pasarela de pagos desacoplada (simulada en la demo),
+  comprobantes con cruce criptográfico, entradas nominales, historial de tickets,
+  notificaciones y auditoría/tracking de seguridad.
 
   El esquema aplica 3FN estricta y evita guardar valores calculados o redundantes:
   - el cupo disponible se calcula desde el cupo total y las entradas vigentes;
-  - la cantidad y el total de una compra (y de su pago) se calculan desde sus entradas;
+  - la cantidad y el total de una compra se calculan desde sus entradas;
+  - pago.monto_pago es el importe autorizado externo y se cruza con la suma de entradas;
   - el comprobante se vincula directamente al pago aprobado (sin duplicar id_compra ni id_cliente);
   - la verificación de identidad se vincula al usuario sin repetir su nombre ni DNI;
   - el precio pagado y los datos nominales del asistente en cada entrada se conservan
     como hechos históricos inmutables del ticket emitido.
+
+  La integración KYC/pago incluida es simulada: no hay conexión real con RENAPER
+  ni con una pasarela. Para una base existente, la migración de los campos nuevos
+  está en docs/migraciones/V2__kyc_pago_seguridad.sql.
   '''
 }
 
@@ -137,8 +142,12 @@ Table verificacion_identidad {
   estado_verificacion estado_verificacion [not null, default: 'PENDIENTE']
   codigo_validacion_kyc varchar(100) [not null, unique, note: 'Token/hash devuelto por el proveedor de identidad (sin guardar biometría cruda por Ley 25.326).']
   observacion_verificacion varchar(255)
+  hash_evidencia_documental varchar(64) [note: 'SHA-256 de la foto del DNI; la imagen no se persiste.']
+  hash_selfie varchar(64) [note: 'SHA-256 de la selfie; la imagen no se persiste.']
+  proveedor_identidad varchar(60) [note: 'Proveedor o simulador que resolvió el KYC.']
+  puntaje_coincidencia decimal(5,4) [note: 'Puntaje de coincidencia devuelto por el proveedor.']
   fecha_solicitud timestamp [not null, default: `now()`]
-  fecha_verificacion timestamp [note: 'Momento en que la identidad quedó VERIFICADA.']
+  fecha_verificacion timestamp [note: 'Momento del último resultado del KYC (verificado o rechazado).']
   created_at timestamp [not null, default: `now()`]
   updated_at timestamp
 
@@ -251,7 +260,10 @@ Table pago {
   medio_pago medio_pago [not null, default: 'TARJETA_CREDITO']
   estado_pago estado_pago [not null, default: 'APROBADO']
   referencia_externa_pago varchar(120) [not null, unique, note: 'ID de transacción/token de idempotencia en la pasarela externa.']
-  ultimos_cuatro_digitos varchar(4) [note: 'Cumplimiento PCI-DSS: solo últimos 4 dígitos visibles; jamás se guarda PAN ni CVV.']
+  ultimos_cuatro_digitos varchar(4) [note: 'Solo se conservan los últimos 4 dígitos; no se guarda PAN ni CVV.']
+  monto_pago decimal(10,2) [note: 'Monto autorizado por la pasarela; se cruza con la suma de entradas.']
+  moneda_pago varchar(3) [default: 'ARS']
+  codigo_autorizacion_pago varchar(50) [note: 'Código devuelto por la pasarela simulada o real.']
   fecha_pago timestamp [not null, default: `now()`]
   created_at timestamp [not null, default: `now()`]
   updated_at timestamp
@@ -261,9 +273,10 @@ Table pago {
   }
 
   Note: '''
-  Transacción procesada por la pasarela de pago. Cumple 3FN al no duplicar el monto
-  total ni el id_cliente (se obtienen desde compra y sus entradas) y cumple PCI-DSS
-  al almacenar únicamente tokens y referencias externas sin datos sensibles de tarjeta.
+  Transacción procesada por la pasarela de pago. No duplica el total calculado:
+  monto_pago registra el importe efectivamente autorizado por la pasarela y se
+  cruza contra la suma de entradas. No se guardan PAN ni CVV; solo referencias
+  externas y los últimos cuatro dígitos.
   '''
 }
 
