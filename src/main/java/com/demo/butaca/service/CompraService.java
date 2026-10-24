@@ -23,8 +23,10 @@ import com.demo.butaca.model.MedioPago;
 import com.demo.butaca.model.MetodoVerificacion;
 import com.demo.butaca.model.Pago;
 import com.demo.butaca.model.PasarelaPago;
+import com.demo.butaca.model.Persona;
 import com.demo.butaca.model.Rol;
 import com.demo.butaca.model.TipoComprobante;
+import com.demo.butaca.model.TipoEntrada;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.model.VerificacionIdentidad;
 import com.demo.butaca.repository.CompraRepository;
@@ -33,6 +35,7 @@ import com.demo.butaca.repository.EntradaRepository;
 import com.demo.butaca.repository.EventoRepository;
 import com.demo.butaca.repository.HistorialEstadoEntradaRepository;
 import com.demo.butaca.repository.PagoRepository;
+import com.demo.butaca.repository.PersonaRepository;
 import com.demo.butaca.repository.RolRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
@@ -61,6 +64,7 @@ public class CompraService {
     private final CompraRepository compraRepository;
     private final EventoRepository eventoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PersonaRepository personaRepository;
     private final RolRepository rolRepository;
     private final EntradaRepository entradaRepository;
     private final HistorialEstadoEntradaRepository historialRepository;
@@ -75,6 +79,7 @@ public class CompraService {
     public CompraService(CompraRepository compraRepository,
                          EventoRepository eventoRepository,
                          UsuarioRepository usuarioRepository,
+                         PersonaRepository personaRepository,
                          RolRepository rolRepository,
                          EntradaRepository entradaRepository,
                          HistorialEstadoEntradaRepository historialRepository,
@@ -87,6 +92,7 @@ public class CompraService {
         this.compraRepository = compraRepository;
         this.eventoRepository = eventoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.personaRepository = personaRepository;
         this.rolRepository = rolRepository;
         this.entradaRepository = entradaRepository;
         this.historialRepository = historialRepository;
@@ -98,15 +104,6 @@ public class CompraService {
         this.auditoriaService = auditoriaService;
     }
 
-    /**
-     * Método transaccional que cruza la información al momento de comprar la entrada:
-     * 1. Verifica identidad obligatoria del comprador (KYC en verificacion_identidad).
-     * 2. Valida disponibilidad y concurrencia del evento (@Version).
-     * 3. Procesa la transacción en la pasarela de pago cumpliendo PCI-DSS (tabla pago).
-     * 4. Emite las entradas nominales individuales con DNI y nombre de cada asistente (tabla entrada).
-     * 5. Genera el comprobante con firma SHA-256 de cruce de información y envía las entradas (tabla comprobante + notificacion).
-     * 6. Trackea toda la operación en la bitácora inmutable de seguridad (tabla auditoria_seguridad).
-     */
     @Transactional
     public CompraResponseDTO comprarEntrada(CompraRequestDTO request) {
         int cantidad = request.getCantidad() == null ? 1 : request.getCantidad();
@@ -135,7 +132,7 @@ public class CompraService {
             throw new IllegalStateException("Es obligatorio verificar su identidad en la aplicación antes de comprar entradas");
         }
 
-        // 2. Cruce de Evento y Disponibilidad con Bloqueo Optimista (@Version)
+        // 2. Cruce de Evento y Disponibilidad
         Evento evento = eventoRepository.findByIdParaCompra(request.getEventoId())
                 .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
         if (!EstadoEvento.PUBLICADO.equals(evento.getEstadoPublicacionEvento())) {
@@ -147,17 +144,22 @@ public class CompraService {
         if (evento.getCuposTotalesEvento() - ocupadas < cantidad) {
             throw new IllegalStateException("Cupos insuficientes");
         }
+        evento.setVersion((evento.getVersion() == null ? 0 : evento.getVersion()) + 1);
 
         LocalDateTime fechaCompra = LocalDateTime.now();
 
         Compra compra = Compra.builder()
                 .fechaCompra(fechaCompra)
                 .estadoCompra(EstadoCompra.CONFIRMADA)
+                .monedaCompra("ARS")
                 .cliente(cliente)
                 .build();
         compra = compraRepository.save(compra);
 
-        // 3. Cruce con Pasarela de Pago desacoplada (cumplimiento PCI-DSS)
+        BigDecimal precioUnitario = evento.getPrecioEntradaEvento();
+        BigDecimal montoTotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+
+        // 3. Cruce con Pasarela de Pago (tabla pago de DrawDB)
         PasarelaPago pasarela = parsearPasarela(request.getPasarelaPago());
         MedioPago medio = parsearMedioPago(request.getMedioPago());
         String ultimosCuatro = sanitizarUltimosCuatro(request.getUltimosCuatroDigitos());
@@ -166,19 +168,26 @@ public class CompraService {
 
         Pago pago = Pago.builder()
                 .compra(compra)
+                .proveedorPago(pasarela.name())
                 .pasarelaPago(pasarela)
                 .medioPago(medio)
+                .montoPago(montoTotal.compareTo(BigDecimal.ZERO) > 0 ? montoTotal : BigDecimal.ONE)
+                .monedaPago("ARS")
                 .estadoPago(EstadoPago.APROBADO)
                 .referenciaExternaPago(refPasarela)
                 .ultimosCuatroDigitos(ultimosCuatro)
+                .fechaCreacionPago(fechaCompra)
+                .fechaConfirmacionPago(fechaCompra)
                 .fechaPago(fechaCompra)
+                .respuestaProveedorPago("medio=" + medio.name() + "|last4=" + ultimosCuatro)
                 .build();
         pago = pagoRepository.save(pago);
 
-        // 4. Emisión de Entradas Nominales individuales (con DNI y Nombre del asistente)
-        String dniComprador = cliente.getDniUsuario() != null ? cliente.getDniUsuario() : "VERIFICADO";
+        // 4. Emisión de Entradas Nominales vinculadas a persona_titular y tipo_entrada (DrawDB)
+        String dniComprador = cliente.getDniUsuario() != null ? cliente.getDniUsuario() : "40000000";
         String nombreComprador = (cliente.getNombreUsuario() + " " + cliente.getApellidoUsuario()).trim();
         List<AsistenteNominalDTO> asistentesReq = request.getAsistentes() == null ? List.of() : request.getAsistentes();
+        TipoEntrada tipoEntrada = evento.obtenerTipoEntradaPrincipal();
 
         List<Entrada> entradas = new ArrayList<>();
         for (int i = 0; i < cantidad; i++) {
@@ -190,12 +199,17 @@ public class CompraService {
                     ? asistente.getNombreAsistente().trim()
                     : nombreComprador;
 
+            Persona personaTitular = resolverPersonaTitular(dniNominal, nombreNominal, cliente.getEmailUsuario());
+
             entradas.add(Entrada.builder()
                     .codigoUnicoEntrada(UUID.randomUUID())
                     .estadoEntrada(EstadoEntrada.CONFIRMADA)
-                    .precioPagado(evento.getPrecioEntradaEvento())
+                    .precioPagado(precioUnitario)
+                    .monedaEntrada("ARS")
                     .fechaEmision(fechaCompra)
                     .evento(evento)
+                    .tipoEntrada(tipoEntrada)
+                    .personaTitular(personaTitular)
                     .cliente(cliente)
                     .compra(compra)
                     .dniAsistente(dniNominal)
@@ -258,6 +272,23 @@ public class CompraService {
         return toDTO(compra, pago, comprobante);
     }
 
+    private Persona resolverPersonaTitular(String dniStr, String nombreCompleto, String emailDefault) {
+        String digitos = dniStr == null ? "" : dniStr.replaceAll("\\D", "");
+        Long dniLong = digitos.isEmpty() ? Math.abs(UUID.randomUUID().getMostSignificantBits() % 90000000L) + 10000000L : Long.parseLong(digitos);
+        return personaRepository.findByDniPersona(dniLong).orElseGet(() -> {
+            String limpio = nombreCompleto == null || nombreCompleto.isBlank() ? "Titular Nominal" : nombreCompleto.trim();
+            int espacio = limpio.indexOf(' ');
+            String nombre = espacio > 0 ? limpio.substring(0, espacio).trim() : limpio;
+            String apellido = espacio > 0 ? limpio.substring(espacio + 1).trim() : "Titular";
+            return personaRepository.save(Persona.builder()
+                    .dniPersona(dniLong)
+                    .nombrePersona(nombre)
+                    .apellidoPersona(apellido)
+                    .emailPersona(emailDefault)
+                    .build());
+        });
+    }
+
     @Transactional(readOnly = true)
     public CompraResponseDTO obtenerCompra(Long id) {
         Compra compra = compraRepository.findById(id)
@@ -301,7 +332,7 @@ public class CompraService {
     }
 
     public CompraResponseDTO toDTO(Compra compra) {
-        Pago pago = pagoRepository.findFirstByCompraIdOrderByFechaPagoDesc(compra.getId()).orElse(null);
+        Pago pago = pagoRepository.findFirstByCompraIdOrderByFechaCreacionPagoDesc(compra.getId()).orElse(null);
         Comprobante comprobante = pago == null ? null : comprobanteRepository.findByPagoIdPago(pago.getIdPago()).orElse(null);
         return toDTO(compra, pago, comprobante);
     }
@@ -412,9 +443,13 @@ public class CompraService {
             }
             Rol rolCliente = rolRepository.findByNombre("CLIENTE")
                     .orElseGet(() -> rolRepository.save(Rol.builder().nombre("CLIENTE").build()));
+            String nombre = request.getNombreUsuario() != null && !request.getNombreUsuario().isBlank() ? request.getNombreUsuario().trim() : "Cliente";
+            String apellido = request.getApellidoUsuario() != null && !request.getApellidoUsuario().isBlank() ? request.getApellidoUsuario().trim() : "Butaca";
+            Persona persona = resolverPersonaTitular(request.getDniUsuario(), nombre + " " + apellido, email);
             Usuario nuevo = new Usuario();
-            nuevo.setNombreUsuario(request.getNombreUsuario() != null && !request.getNombreUsuario().isBlank() ? request.getNombreUsuario().trim() : "Cliente");
-            nuevo.setApellidoUsuario(request.getApellidoUsuario() != null && !request.getApellidoUsuario().isBlank() ? request.getApellidoUsuario().trim() : "Butaca");
+            nuevo.setPersona(persona);
+            nuevo.setNombreUsuario(nombre);
+            nuevo.setApellidoUsuario(apellido);
             nuevo.setEmailUsuario(email);
             nuevo.setDniUsuario(request.getDniUsuario());
             nuevo.setPasswordUsuario(passwordEncoder.encode("cliente123"));
@@ -452,4 +487,3 @@ public class CompraService {
         }
     }
 }
-

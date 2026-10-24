@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface NotificacionRepository extends JpaRepository<Notificacion, Long> {
-    List<Notificacion> findByUsuarioIdUsuarioOrderByFechaCreacionDesc(Long usuarioId);
+    List<Notificacion> findByUsuarioIdUsuarioOrderByCreatedAtDesc(Long usuarioId);
 
     @Query("select n from Notificacion n where n.usuario.idUsuario = :usuarioId order by n.fechaEnvio desc")
     List<Notificacion> findByUsuarioIdOrderByFechaEnvioDesc(@Param("usuarioId") Long usuarioId);

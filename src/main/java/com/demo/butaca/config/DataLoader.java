@@ -19,6 +19,7 @@ import com.demo.butaca.model.MetodoVerificacion;
 import com.demo.butaca.model.Notificacion;
 import com.demo.butaca.model.Pago;
 import com.demo.butaca.model.PasarelaPago;
+import com.demo.butaca.model.Persona;
 import com.demo.butaca.model.Rol;
 import com.demo.butaca.model.TipoComprobante;
 import com.demo.butaca.model.Ubicacion;
@@ -33,6 +34,7 @@ import com.demo.butaca.repository.EventoRepository;
 import com.demo.butaca.repository.HistorialEstadoEntradaRepository;
 import com.demo.butaca.repository.NotificacionRepository;
 import com.demo.butaca.repository.PagoRepository;
+import com.demo.butaca.repository.PersonaRepository;
 import com.demo.butaca.repository.RolRepository;
 import com.demo.butaca.repository.UbicacionRepository;
 import com.demo.butaca.repository.UsuarioRepository;
@@ -55,6 +57,7 @@ public class DataLoader {
 
     @Bean
     CommandLineRunner initDatabase(UsuarioRepository usuarioRepository,
+                                   PersonaRepository personaRepository,
                                    EventoRepository eventoRepository,
                                    RolRepository rolRepository,
                                    CategoriaRepository categoriaRepository,
@@ -89,13 +92,13 @@ public class DataLoader {
                     asegurarUbicacion(ubicacionRepository, "Centro Cultural Recoleta", "Junin 1930, Buenos Aires", 700)
             );
 
-            Usuario admin = asegurarUsuario(usuarioRepository, encoder, adminRol, "Admin", "Sistema",
+            Usuario admin = asegurarUsuario(usuarioRepository, personaRepository, encoder, adminRol, "Admin", "Sistema",
                     "30111222", "admin@butaca.com", "admin123", "3810000001");
-            Usuario org = asegurarUsuario(usuarioRepository, encoder, organizadorRol, "Productora", "Eventos S.A.",
+            Usuario org = asegurarUsuario(usuarioRepository, personaRepository, encoder, organizadorRol, "Productora", "Eventos S.A.",
                     "33444555", "org@butaca.com", "org123", "3810000002");
-            Usuario cliente = asegurarUsuario(usuarioRepository, encoder, clienteRol, "Juan", "Perez",
+            Usuario cliente = asegurarUsuario(usuarioRepository, personaRepository, encoder, clienteRol, "Juan", "Perez",
                     "42850123", "cliente@butaca.com", "cliente123", "3810000003");
-            Usuario ana = asegurarUsuario(usuarioRepository, encoder, clienteRol, "Ana", "Gomez",
+            Usuario ana = asegurarUsuario(usuarioRepository, personaRepository, encoder, clienteRol, "Ana", "Gomez",
                     "44120987", "ana@butaca.com", "ana123", "3810000004");
 
             asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, admin, "KYC-REN-ADMIN001");
@@ -153,16 +156,16 @@ public class DataLoader {
             if (compraRepository.count() == 0 && eventos.size() >= 4) {
                 LocalDateTime ahora = LocalDateTime.now();
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(0), cliente, 2,
+                        personaRepository, historialRepository, auditoriaRepository, eventos.get(0), cliente, 2,
                         ahora.minusDays(3).withHour(10).withMinute(15), "PAY-MP-DEMO0001", "BUT-2026-000001");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(1), cliente, 1,
+                        personaRepository, historialRepository, auditoriaRepository, eventos.get(1), cliente, 1,
                         ahora.minusDays(1).withHour(17).withMinute(40), "PAY-MP-DEMO0002", "BUT-2026-000002");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(2), ana, 3,
+                        personaRepository, historialRepository, auditoriaRepository, eventos.get(2), ana, 3,
                         ahora.minusDays(2).withHour(19).withMinute(5), "PAY-ST-DEMO0003", "BUT-2026-000003");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(3), ana, 2,
+                        personaRepository, historialRepository, auditoriaRepository, eventos.get(3), ana, 2,
                         ahora.minusHours(5), "PAY-MP-DEMO0004", "BUT-2026-000004");
             }
 
@@ -199,10 +202,21 @@ public class DataLoader {
                         .build()));
     }
 
-    private Usuario asegurarUsuario(UsuarioRepository usuarioRepository, BCryptPasswordEncoder encoder, Rol rol,
+    private Usuario asegurarUsuario(UsuarioRepository usuarioRepository, PersonaRepository personaRepository,
+                                    BCryptPasswordEncoder encoder, Rol rol,
                                     String nombre, String apellido, String dni, String email, String password, String telefono) {
         return usuarioRepository.findByEmailUsuarioIgnoreCase(email).orElseGet(() -> {
+            Long dniLong = Long.parseLong(dni);
+            Persona persona = personaRepository.findByDniPersona(dniLong)
+                    .orElseGet(() -> personaRepository.save(Persona.builder()
+                            .dniPersona(dniLong)
+                            .nombrePersona(nombre)
+                            .apellidoPersona(apellido)
+                            .emailPersona(email)
+                            .telefonoPersona(telefono)
+                            .build()));
             Usuario usuario = new Usuario();
+            usuario.setPersona(persona);
             usuario.setNombreUsuario(nombre);
             usuario.setApellidoUsuario(apellido);
             usuario.setDniUsuario(dni);
@@ -251,13 +265,13 @@ public class DataLoader {
         evento.setDescripcionEvento(descripcion);
         evento.setFechaEvento(fecha);
         evento.setHoraEvento(hora);
-        evento.setPrecioEntradaEvento(precio);
         evento.setCuposTotalesEvento(cupos);
         evento.setEstadoPublicacionEvento(estado);
         evento.setImagenUrl(imagenUrl);
         evento.setOrganizador(organizador);
         evento.setCategoria(categoria);
         evento.setUbicacion(ubicacion);
+        evento.setPrecioEntradaEvento(precio);
         return eventoRepository.save(evento);
     }
 
@@ -265,6 +279,7 @@ public class DataLoader {
                                  PagoRepository pagoRepository,
                                  ComprobanteRepository comprobanteRepository,
                                  EntradaRepository entradaRepository,
+                                 PersonaRepository personaRepository,
                                  HistorialEstadoEntradaRepository historialRepository,
                                  AuditoriaSeguridadRepository auditoriaRepository,
                                  Evento evento, Usuario cliente,
@@ -273,18 +288,27 @@ public class DataLoader {
         Compra compra = Compra.builder()
                 .fechaCompra(fechaCompra)
                 .estadoCompra(EstadoCompra.CONFIRMADA)
+                .monedaCompra("ARS")
                 .cliente(cliente)
                 .build();
         compra = compraRepository.save(compra);
 
+        BigDecimal montoTotal = evento.getPrecioEntradaEvento().multiply(BigDecimal.valueOf(cantidad));
+
         Pago pago = pagoRepository.save(Pago.builder()
                 .compra(compra)
+                .proveedorPago(PasarelaPago.MERCADOPAGO.name())
                 .pasarelaPago(PasarelaPago.MERCADOPAGO)
                 .medioPago(MedioPago.TARJETA_CREDITO)
+                .montoPago(montoTotal)
+                .monedaPago("ARS")
                 .estadoPago(EstadoPago.APROBADO)
                 .referenciaExternaPago(refPago)
                 .ultimosCuatroDigitos("4242")
+                .fechaCreacionPago(fechaCompra)
+                .fechaConfirmacionPago(fechaCompra)
                 .fechaPago(fechaCompra)
+                .respuestaProveedorPago("medio=TARJETA_CREDITO|last4=4242")
                 .build());
 
         comprobanteRepository.save(Comprobante.builder()
@@ -298,18 +322,29 @@ public class DataLoader {
 
         String nombreTitular = (cliente.getNombreUsuario() + " " + cliente.getApellidoUsuario()).trim();
         for (int i = 0; i < cantidad; i++) {
-            String dniNominal = i == 0
-                    ? cliente.getDniUsuario()
-                    : String.valueOf(Long.parseLong(cliente.getDniUsuario()) + i);
-            String nombreNominal = i == 0
+            final int indice = i;
+            long dniLong = Long.parseLong(cliente.getDniUsuario()) + indice;
+            String dniNominal = String.valueOf(dniLong);
+            String nombreNominal = indice == 0
                     ? nombreTitular
-                    : nombreTitular + " (Acompañante " + i + ")";
+                    : nombreTitular + " (Acompañante " + indice + ")";
+
+            Persona personaTitular = personaRepository.findByDniPersona(dniLong)
+                    .orElseGet(() -> personaRepository.save(Persona.builder()
+                            .dniPersona(dniLong)
+                            .nombrePersona(cliente.getNombreUsuario())
+                            .apellidoPersona(indice == 0 ? cliente.getApellidoUsuario() : "Acompañante " + indice)
+                            .emailPersona(cliente.getEmailUsuario())
+                            .build()));
 
             Entrada entrada = Entrada.builder()
                     .estadoEntrada(EstadoEntrada.CONFIRMADA)
                     .precioPagado(evento.getPrecioEntradaEvento())
+                    .monedaEntrada("ARS")
                     .fechaEmision(fechaCompra)
                     .evento(evento)
+                    .tipoEntrada(evento.obtenerTipoEntradaPrincipal())
+                    .personaTitular(personaTitular)
                     .cliente(cliente)
                     .compra(compra)
                     .dniAsistente(dniNominal)

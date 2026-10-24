@@ -22,7 +22,7 @@ import java.util.List;
 @Table(
         name = "ubicacion",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_ubicacion_nombre_direccion",
+                name = "uq_ubicacion_nombre_direccion",
                 columnNames = {"nombre_ubicacion", "direccion_ubicacion"}
         )
 )
@@ -45,8 +45,9 @@ public class Ubicacion extends AuditableEntity {
     @Column(name = "direccion_ubicacion", nullable = false, length = 255)
     private String direccion;
 
+    @Builder.Default
     @Column(name = "capacidad_maxima_ubicacion", nullable = false)
-    private Integer capacidadMaxima;
+    private Integer capacidadMaxima = 10000;
 
     @Builder.Default
     @Column(name = "activa_ubicacion", nullable = false)
@@ -56,4 +57,8 @@ public class Ubicacion extends AuditableEntity {
     @Builder.Default
     @OneToMany(mappedBy = "ubicacion")
     private List<Evento> eventos = new ArrayList<>();
+
+    public Integer getCapacidadMaxima() {
+        return capacidadMaxima != null ? capacidadMaxima : 10000;
+    }
 }

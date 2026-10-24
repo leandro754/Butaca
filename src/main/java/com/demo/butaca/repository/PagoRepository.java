@@ -7,6 +7,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PagoRepository extends JpaRepository<Pago, Long> {
-    List<Pago> findByCompraIdOrderByFechaPagoDesc(Long idCompra);
-    Optional<Pago> findFirstByCompraIdOrderByFechaPagoDesc(Long idCompra);
+    List<Pago> findByCompraIdOrderByFechaCreacionPagoDesc(Long idCompra);
+    Optional<Pago> findFirstByCompraIdOrderByFechaCreacionPagoDesc(Long idCompra);
 }

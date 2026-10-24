@@ -23,20 +23,23 @@ Butaca es una plataforma academica de gestion y venta simulada de entradas para 
 
 ## Modelo De Datos
 
-El modelo normalizado vigente en 3FN usa estas 13 entidades:
+El modelo normalizado vigente en 3FN sincronizado con DrawDB (`butaca-modelado-datos`) usa estas 16 entidades en 5 módulos:
 
 - `rol`: catalogo de roles (`ADMIN`, `ORGANIZADOR`, `CLIENTE`).
-- `usuario`: credenciales, DNI unico, datos personales, estado de cuenta y rol.
-- `verificacion_identidad`: validacion KYC obligatoria antes de comprar (`VERIFICADA`), vinculada a `usuario` sin duplicar DNI ni nombre.
-- `ubicacion`: lugares fisicos con direccion, capacidad maxima y estado activo.
+- `persona`: identidad real con `dni_persona` unico, nombre, apellido, email y telefono de contacto.
+- `usuario`: credenciales, estado de cuenta, vinculo a `persona` y `rol`.
+- `verificacion_identidad`: validacion KYC obligatoria antes de comprar (`VERIFICADA`), vinculada 1:1 a `usuario` sin duplicar DNI ni nombre.
+- `ubicacion`: lugares fisicos con direccion, capacidad maxima (`capacidad_maxima_ubicacion`) y estado activo.
 - `categoria`: clasificacion de eventos.
-- `evento`: publicacion, cupo total, precio, categoria, ubicacion y organizador.
-- `compra`: cabecera minima con cliente verificado, fecha y estado.
-- `pago`: transaccion de pasarela desacoplada cumpliendo PCI-DSS (referencia externa y ultimos 4 digitos, sin PAN ni CVV ni monto duplicado).
-- `comprobante`: recibo/factura vinculada a `pago` con firma SHA-256 de cruce de informacion y estado de envio digital.
-- `entrada`: tickets nominales emitidos con UUID unico, DNI/nombre del asistente y precio historico.
+- `evento`: publicacion, cupo total, categoria, ubicacion, organizador y `version_evento` (`@Version`).
+- `tipo_entrada`: tarifas configuradas por evento (`nombre_tipo_entrada`, `precio_tipo_entrada`, `moneda_tipo_entrada`, `activo_tipo_entrada`).
+- `compra`: cabecera minima con cliente comprador (`id_usuario_comprador`), fecha, estado y moneda.
+- `entrada`: tickets nominales emitidos con UUID unico, vinculo a `evento`, `tipo_entrada`, `persona` titular (`id_persona_titular`), `compra`, precio historico y `version_entrada`.
 - `historial_estado_entrada`: trazabilidad de emision, uso nominal en puerta y anulacion.
-- `notificacion`: mensajes internos del sistema.
+- `pago`: transaccion de pasarela desacoplada (`proveedor_pago`, `referencia_externa_pago`, `monto_pago`, `moneda_pago`, `estado_pago`).
+- `reembolso`: devoluciones totales o parciales asociadas a un `pago`.
+- `comprobante`: recibo/factura vinculada 1:1 a `pago` con firma SHA-256 de cruce de informacion y estado de envio digital.
+- `notificacion`: mensajes internos del sistema con estado de envio y lectura (`leida_notificacion`).
 - `auditoria_seguridad`: bitacora append-only de tracking de seguridad e informatica.
 
 No volver a guardar datos de ubicacion como texto duplicado en `evento` si ya

@@ -2,22 +2,34 @@ package com.demo.butaca.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "notificacion")
+@Table(
+        name = "notificacion",
+        indexes = {
+                @Index(name = "idx_notificacion_usuario_fecha", columnList = "id_usuario, created_at"),
+                @Index(name = "idx_notificacion_evento", columnList = "id_evento"),
+                @Index(name = "idx_notificacion_compra", columnList = "id_compra")
+        }
+)
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
 @NoArgsConstructor
@@ -31,27 +43,54 @@ public class Notificacion extends AuditableEntity {
     @EqualsAndHashCode.Include
     private Long idNotificacion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_usuario_destinatario", nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_usuario", nullable = false)
     private Usuario usuario;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_evento_relacionado")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_evento")
     private Evento evento;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_compra")
+    private Compra compra;
+
+    @Builder.Default
+    @Column(name = "tipo_notificacion", nullable = false, length = 20)
+    private String tipo = "INFO";
+
+    @Column(name = "asunto_notificacion", length = 200)
+    private String asunto;
 
     @Column(name = "mensaje_notificacion", nullable = false, columnDefinition = "TEXT")
     private String mensaje;
 
-    @Column(name = "tipo_notificacion", nullable = false, length = 20)
-    private String tipo;
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_envio_notificacion", nullable = false, length = 20)
+    private EstadoEnvioNotificacion estadoEnvio = EstadoEnvioNotificacion.ENVIADA;
+
+    @Column(name = "fecha_envio_notificacion")
+    private LocalDateTime fechaEnvio;
+
+    @Column(name = "error_envio", columnDefinition = "TEXT")
+    private String errorEnvio;
 
     @Builder.Default
     @Column(name = "leida_notificacion", nullable = false)
     private Boolean leida = false;
 
-    @Column(name = "fecha_creacion_notificacion", nullable = false)
+    @Transient
     private LocalDateTime fechaCreacion;
 
-    @Column(name = "fecha_envio_notificacion")
-    private LocalDateTime fechaEnvio;
+    public LocalDateTime getFechaCreacion() {
+        if (fechaCreacion != null) {
+            return fechaCreacion;
+        }
+        return getCreatedAt() != null ? getCreatedAt() : fechaEnvio;
+    }
+
+    public Boolean getLeida() {
+        return leida != null ? leida : false;
+    }
 }

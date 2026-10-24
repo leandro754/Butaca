@@ -7,14 +7,19 @@ import com.demo.butaca.model.Categoria;
 import com.demo.butaca.model.Entrada;
 import com.demo.butaca.model.EstadoEntrada;
 import com.demo.butaca.model.EstadoEvento;
+import com.demo.butaca.model.EstadoPago;
+import com.demo.butaca.model.EstadoReembolso;
 import com.demo.butaca.model.Evento;
 import com.demo.butaca.model.HistorialEstadoEntrada;
+import com.demo.butaca.model.Reembolso;
 import com.demo.butaca.model.Ubicacion;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.repository.CategoriaRepository;
 import com.demo.butaca.repository.EntradaRepository;
 import com.demo.butaca.repository.EventoRepository;
 import com.demo.butaca.repository.HistorialEstadoEntradaRepository;
+import com.demo.butaca.repository.PagoRepository;
+import com.demo.butaca.repository.ReembolsoRepository;
 import com.demo.butaca.repository.UbicacionRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
@@ -23,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class EventoService {
@@ -36,11 +43,14 @@ public class EventoService {
     private final UbicacionRepository ubicacionRepository;
     private final EntradaRepository entradaRepository;
     private final HistorialEstadoEntradaRepository historialRepository;
+    private final PagoRepository pagoRepository;
+    private final ReembolsoRepository reembolsoRepository;
     private final NotificacionService notificacionService;
 
     public EventoService(EventoRepository eventoRepository, UsuarioRepository usuarioRepository,
                          CategoriaRepository categoriaRepository, UbicacionRepository ubicacionRepository,
                          EntradaRepository entradaRepository, HistorialEstadoEntradaRepository historialRepository,
+                         PagoRepository pagoRepository, ReembolsoRepository reembolsoRepository,
                          NotificacionService notificacionService) {
         this.eventoRepository = eventoRepository;
         this.usuarioRepository = usuarioRepository;
@@ -48,6 +58,8 @@ public class EventoService {
         this.ubicacionRepository = ubicacionRepository;
         this.entradaRepository = entradaRepository;
         this.historialRepository = historialRepository;
+        this.pagoRepository = pagoRepository;
+        this.reembolsoRepository = reembolsoRepository;
         this.notificacionService = notificacionService;
     }
 
@@ -148,9 +160,30 @@ public class EventoService {
         }
         entradaRepository.saveAll(entradas);
 
+        // Generar reembolsos sobre los pagos asociados a las compras afectadas (tabla reembolso de DrawDB)
+        entradas.stream()
+                .map(Entrada::getCompra)
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(compra -> pagoRepository.findFirstByCompraIdOrderByFechaCreacionPagoDesc(compra.getId())
+                        .ifPresent(pago -> {
+                            pago.setEstadoPago(EstadoPago.REEMBOLSADO);
+                            pagoRepository.save(pago);
+                            reembolsoRepository.save(Reembolso.builder()
+                                    .pago(pago)
+                                    .montoReembolso(pago.getMontoPago())
+                                    .monedaReembolso(pago.getMonedaPago())
+                                    .motivoReembolso("Cancelación del evento " + evento.getTituloEvento())
+                                    .estadoReembolso(EstadoReembolso.PROCESADO)
+                                    .referenciaExternaReembolso("REF-" + UUID.randomUUID().toString().substring(0, 10).toUpperCase())
+                                    .fechaSolicitudReembolso(ahora)
+                                    .fechaProcesamientoReembolso(ahora)
+                                    .build());
+                        }));
+
         entradas.stream()
                 .map(Entrada::getCliente)
-                .filter(cliente -> cliente != null)
+                .filter(Objects::nonNull)
                 .distinct()
                 .forEach(cliente -> notificacionService.crearNotificacion(NotificacionDTO.builder()
                         .usuarioId(cliente.getIdUsuario())
@@ -205,11 +238,11 @@ public class EventoService {
         evento.setDescripcionEvento(request.getDescripcionEvento());
         evento.setFechaEvento(request.getFechaEvento());
         evento.setHoraEvento(request.getHoraEvento());
-        evento.setPrecioEntradaEvento(request.getPrecioEntradaEvento());
         evento.setCuposTotalesEvento(request.getCuposTotalesEvento());
         evento.setImagenUrl(request.getImagenUrl());
         evento.setCategoria(categoria);
         evento.setUbicacion(ubicacion);
+        evento.setPrecioEntradaEvento(request.getPrecioEntradaEvento());
     }
 
     private EstadoEvento parseEstado(String raw, EstadoEvento defaultValue) {
@@ -221,6 +254,7 @@ public class EventoService {
 
     public EventoResponseDTO toDTO(Evento evento) {
         Ubicacion ubicacion = evento.getUbicacion();
+        int ocupadas = contarEntradasVigentes(evento.getIdEvento());
         return EventoResponseDTO.builder()
                 .idEvento(evento.getIdEvento())
                 .tituloEvento(evento.getTituloEvento())
@@ -233,13 +267,13 @@ public class EventoService {
                 .horaEvento(evento.getHoraEvento())
                 .precioEntradaEvento(evento.getPrecioEntradaEvento())
                 .cuposTotalesEvento(evento.getCuposTotalesEvento())
-                .cuposDisponibles(calcularCuposDisponibles(evento))
+                .cuposDisponibles(Math.max(0, evento.getCuposTotalesEvento() - ocupadas))
                 .estadoPublicacionEvento(evento.getEstadoPublicacionEvento().name())
                 .imagenUrl(evento.getImagenUrl())
                 .categoriaId(evento.getCategoria() == null ? null : evento.getCategoria().getIdCategoria())
                 .categoriaNombre(evento.getCategoria() == null ? null : evento.getCategoria().getNombre())
                 .organizadorIdEvento(evento.getOrganizador() == null ? null : evento.getOrganizador().getIdUsuario())
-                .version(evento.getVersion())
+                .version(ocupadas)
                 .build();
     }
 }

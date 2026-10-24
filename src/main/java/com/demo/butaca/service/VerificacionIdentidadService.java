@@ -5,9 +5,11 @@ import com.demo.butaca.dto.VerificacionIdentidadDTO;
 import com.demo.butaca.model.EstadoUsuario;
 import com.demo.butaca.model.EstadoVerificacion;
 import com.demo.butaca.model.MetodoVerificacion;
+import com.demo.butaca.model.Persona;
 import com.demo.butaca.model.Rol;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.model.VerificacionIdentidad;
+import com.demo.butaca.repository.PersonaRepository;
 import com.demo.butaca.repository.RolRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
@@ -23,6 +25,7 @@ public class VerificacionIdentidadService {
 
     private final VerificacionIdentidadRepository verificacionRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PersonaRepository personaRepository;
     private final RolRepository rolRepository;
     private final NotificacionService notificacionService;
     private final AuditoriaSeguridadService auditoriaService;
@@ -30,11 +33,13 @@ public class VerificacionIdentidadService {
 
     public VerificacionIdentidadService(VerificacionIdentidadRepository verificacionRepository,
                                         UsuarioRepository usuarioRepository,
+                                        PersonaRepository personaRepository,
                                         RolRepository rolRepository,
                                         NotificacionService notificacionService,
                                         AuditoriaSeguridadService auditoriaService) {
         this.verificacionRepository = verificacionRepository;
         this.usuarioRepository = usuarioRepository;
+        this.personaRepository = personaRepository;
         this.rolRepository = rolRepository;
         this.notificacionService = notificacionService;
         this.auditoriaService = auditoriaService;
@@ -54,7 +59,19 @@ public class VerificacionIdentidadService {
             throw new IllegalArgumentException("Debe proporcionar un número de DNI/Documento válido para verificar su identidad");
         }
 
-        usuario.setDniUsuario(dni);
+        String digitos = dni.replaceAll("\\D", "");
+        Long dniLong = digitos.isEmpty() ? 10000000L : Long.parseLong(digitos);
+        Persona persona = personaRepository.findByDniPersona(dniLong).orElseGet(() -> personaRepository.save(
+                Persona.builder()
+                        .dniPersona(dniLong)
+                        .nombrePersona(usuario.getNombreUsuario())
+                        .apellidoPersona(usuario.getApellidoUsuario().isBlank() ? "Verificado" : usuario.getApellidoUsuario())
+                        .emailPersona(usuario.getEmailUsuario())
+                        .telefonoPersona(usuario.getTelefono())
+                        .build()
+        ));
+        usuario.setPersona(persona);
+        usuario.setDniUsuario(String.valueOf(dniLong));
         final Usuario usuarioGuardado = usuarioRepository.save(usuario);
 
         MetodoVerificacion metodo = parsearMetodo(request.getMetodoVerificacion());

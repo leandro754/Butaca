@@ -8,7 +8,11 @@ import com.demo.butaca.dto.RegistroUsuarioRequest;
 import com.demo.butaca.dto.VerificacionIdentidadDTO;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.repository.AuditoriaSeguridadRepository;
+import com.demo.butaca.repository.ComprobanteRepository;
 import com.demo.butaca.repository.HistorialEstadoEntradaRepository;
+import com.demo.butaca.repository.PersonaRepository;
+import com.demo.butaca.repository.ReembolsoRepository;
+import com.demo.butaca.repository.TipoEntradaRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.service.AuthService;
 import com.demo.butaca.service.CompraService;
@@ -52,6 +56,18 @@ class ButacaApplicationTests {
 
     @Autowired
     private AuditoriaSeguridadRepository auditoriaRepository;
+
+    @Autowired
+    private PersonaRepository personaRepository;
+
+    @Autowired
+    private TipoEntradaRepository tipoEntradaRepository;
+
+    @Autowired
+    private ReembolsoRepository reembolsoRepository;
+
+    @Autowired
+    private ComprobanteRepository comprobanteRepository;
 
     @Test
     void contextLoads() {
@@ -140,5 +156,25 @@ class ButacaApplicationTests {
         assertNotNull(compraExitosa.getId());
         assertNotNull(compraExitosa.getComprobante());
         assertFalse(auditoriaRepository.findByUsuarioIdUsuarioOrderByFechaAuditoriaDesc(registrado.getIdUsuario()).isEmpty());
+    }
+
+    @Test
+    void modeloCompleto16TablasSincronizadoConDrawDbIncluyendoPersonaTipoEntradaYReembolso() {
+        assertFalse(personaRepository.findAll().isEmpty());
+        assertFalse(tipoEntradaRepository.findAll().isEmpty());
+        assertFalse(comprobanteRepository.findAll().isEmpty());
+
+        List<EventoResponseDTO> publicados = eventoService.listarEventosPublicados();
+        EventoResponseDTO aCancelar = publicados.get(publicados.size() - 1);
+        Usuario cliente = usuarioRepository.findByEmailUsuarioIgnoreCase("cliente@butaca.com").orElseThrow();
+
+        CompraRequestDTO compraReq = new CompraRequestDTO();
+        compraReq.setEventoId(aCancelar.getIdEvento());
+        compraReq.setUsuarioId(cliente.getIdUsuario());
+        compraReq.setCantidad(1);
+        compraService.comprarEntrada(compraReq);
+
+        eventoService.cancelarEvento(aCancelar.getIdEvento());
+        assertFalse(reembolsoRepository.findAll().isEmpty());
     }
 }
