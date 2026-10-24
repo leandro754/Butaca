@@ -1,0 +1,2925 @@
+{
+  "id": "butaca-modelado-datos",
+  "name": "butaca modelado de datos",
+  "document": {
+    "database": "postgresql",
+    "tables": [
+      {
+        "id": "31",
+        "name": "rol",
+        "x": 458,
+        "y": -785,
+        "fields": [
+          {
+            "id": "32",
+            "name": "id_rol",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del rol."
+          },
+          {
+            "id": "33",
+            "name": "nombre_rol",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "nombre_rol IN ('ADMIN', 'ORGANIZADOR', 'CLIENTE')",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "ADMIN, ORGANIZADOR o CLIENTE.",
+            "size": "20"
+          },
+          {
+            "id": "34",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Auditoria tecnica heredada por las entidades JPA."
+          },
+          {
+            "id": "35",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Catalogo de roles del sistema. Separarlo de usuario evita repetir el nombre del rol y escribir valores diferentes para un mismo perfil.\n\nCHECK constraints:\n- nombre_rol IN ('ADMIN', 'ORGANIZADOR', 'CLIENTE')",
+        "indices": [],
+        "color": "#ff6363",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "47",
+        "name": "usuario",
+        "x": -10.212962368974445,
+        "y": -701.2359791541135,
+        "fields": [
+          {
+            "id": "48",
+            "name": "id_usuario",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico de la cuenta."
+          },
+          {
+            "id": "49",
+            "name": "id_persona",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Opcional hasta que la cuenta sea vinculada con una identidad real."
+          },
+          {
+            "id": "50",
+            "name": "id_rol",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Rol asignado al usuario."
+          },
+          {
+            "id": "462bd865-50a5-4e6f-91fd-e06337c4440d",
+            "name": "estado_usuario",
+            "type": "ESTADO_USUARIO",
+            "default": "ACTIVO",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Estado de la cuenta: ACTIVO, INACTIVO o SUSPENDIDO."
+          },
+          {
+            "id": "51",
+            "name": "email_usuario",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "255"
+          },
+          {
+            "id": "52",
+            "name": "password_hash_usuario",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Contrasena cifrada; nunca se devuelve desde la API.",
+            "size": "255"
+          },
+          {
+            "id": "53",
+            "name": "telefono_usuario",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "",
+            "size": "20"
+          },
+          {
+            "id": "54",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "55",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Guarda clientes, organizadores y administradores. El rol determina que operaciones puede realizar cada usuario. estado_usuario permite suspender o desactivar la cuenta.",
+        "indices": [
+          {
+            "name": "idx_usuario_persona",
+            "unique": false,
+            "fields": [
+              "id_persona"
+            ]
+          },
+          {
+            "name": "idx_usuario_rol",
+            "unique": false,
+            "fields": [
+              "id_rol"
+            ]
+          },
+          {
+            "name": "idx_usuario_estado",
+            "unique": false,
+            "fields": [
+              "estado_usuario"
+            ]
+          }
+        ],
+        "color": "#ff6363",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "77",
+        "name": "persona",
+        "x": -665.7630055197534,
+        "y": -785.4176759087115,
+        "fields": [
+          {
+            "id": "78",
+            "name": "id_persona",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico de la persona."
+          },
+          {
+            "id": "79",
+            "name": "dni_persona",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "Identificador unico de la persona."
+          },
+          {
+            "id": "80",
+            "name": "nombre_persona",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "100"
+          },
+          {
+            "id": "81",
+            "name": "apellido_persona",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "100"
+          },
+          {
+            "id": "0046633a-71b3-4375-8828-515d2c2c6d5b",
+            "name": "email_persona",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Email de contacto del titular. Puede no tener cuenta de usuario.",
+            "size": "255"
+          },
+          {
+            "id": "4bd9c0bb-f195-49c5-9941-1b5c7c7e1bdf",
+            "name": "telefono_persona",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Telefono de contacto del titular. Puede no tener cuenta de usuario.",
+            "size": "30"
+          },
+          {
+            "id": "82",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "83",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Representa la identidad real de una persona. Una persona puede asociarse a varias cuentas y ser titular de distintas entradas. Los datos de contacto permiten notificar al titular aunque no tenga cuenta.",
+        "indices": [
+          {
+            "name": "idx_persona_email",
+            "unique": false,
+            "fields": [
+              "email_persona"
+            ]
+          }
+        ],
+        "color": "#ff6363",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "15",
+        "name": "ubicacion",
+        "x": 460.5276478699179,
+        "y": 108.46299773508386,
+        "fields": [
+          {
+            "id": "16",
+            "name": "id_ubicacion",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del lugar."
+          },
+          {
+            "id": "17",
+            "name": "nombre_ubicacion",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "150"
+          },
+          {
+            "id": "18",
+            "name": "direccion_ubicacion",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "255"
+          },
+          {
+            "id": "1ee90dd3-afc1-41a4-b0c6-6cfc317ce786",
+            "name": "capacidad_maxima_ubicacion",
+            "type": "INT",
+            "default": 10000,
+            "check": "capacidad_maxima_ubicacion > 0",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Capacidad fisica maxima del recinto para validar que el cupo_total_evento no la supere."
+          },
+          {
+            "id": "19",
+            "name": "activa_ubicacion",
+            "type": "BOOLEAN",
+            "default": "true",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "20",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "21",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Representa el lugar fisico donde se realiza un evento. Evento guarda solamente la FK de la ubicacion y no repite el nombre o la direccion.",
+        "indices": [
+          {
+            "name": "uq_ubicacion_nombre_direccion",
+            "unique": true,
+            "fields": [
+              "nombre_ubicacion",
+              "direccion_ubicacion"
+            ]
+          }
+        ],
+        "color": "#8eb7ff",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "24",
+        "name": "categoria",
+        "x": -670.6661228920534,
+        "y": -130.13551540600614,
+        "fields": [
+          {
+            "id": "25",
+            "name": "id_categoria",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico de la categoria."
+          },
+          {
+            "id": "26",
+            "name": "nombre_categoria",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "100"
+          },
+          {
+            "id": "27",
+            "name": "descripcion_categoria",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "28",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "29",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Clasifica eventos, por ejemplo Musica, Teatro o Deportes. Una categoria puede utilizarse en muchos eventos.",
+        "indices": [],
+        "color": "#8eb7ff",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "58",
+        "name": "evento",
+        "x": -39.85020985337914,
+        "y": -157.51320209598833,
+        "fields": [
+          {
+            "id": "59",
+            "name": "id_evento",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del evento."
+          },
+          {
+            "id": "60",
+            "name": "id_usuario_organizador",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Usuario ORGANIZADOR responsable."
+          },
+          {
+            "id": "61",
+            "name": "id_ubicacion",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Lugar donde se realiza el evento."
+          },
+          {
+            "id": "62",
+            "name": "id_categoria",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Categoria utilizada para clasificar el evento."
+          },
+          {
+            "id": "63",
+            "name": "titulo_evento",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "200"
+          },
+          {
+            "id": "64",
+            "name": "descripcion_evento",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "65",
+            "name": "fecha_evento",
+            "type": "DATE",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "66",
+            "name": "hora_evento",
+            "type": "TIME",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "67",
+            "name": "cupo_total_evento",
+            "type": "INT",
+            "default": "",
+            "check": "cupo_total_evento > 0",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Cantidad maxima de entradas que puede emitir el evento."
+          },
+          {
+            "id": "68",
+            "name": "estado_evento",
+            "type": "ESTADO_EVENTO",
+            "default": "BORRADOR",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "69",
+            "name": "imagen_url_evento",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "0792ae12-f119-4eba-a1d2-ce77c7cc2e57",
+            "name": "version_evento",
+            "type": "BIGINT",
+            "default": 0,
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Version para control de concurrencia optimista (@Version) al emitir entradas."
+          },
+          {
+            "id": "70",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "71",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Publicacion creada por un organizador. Los clientes solo pueden ver eventos PUBLICADO que todavia tengan cupo. El cupo disponible se calcula restando del cupo total las entradas CONFIRMADA o USADA. Las tarifas y precios se configuran en tipo_entrada.",
+        "indices": [
+          {
+            "name": "idx_evento_organizador",
+            "unique": false,
+            "fields": [
+              "id_usuario_organizador"
+            ]
+          },
+          {
+            "name": "idx_evento_ubicacion",
+            "unique": false,
+            "fields": [
+              "id_ubicacion"
+            ]
+          },
+          {
+            "name": "idx_evento_categoria",
+            "unique": false,
+            "fields": [
+              "id_categoria"
+            ]
+          },
+          {
+            "name": "idx_evento_estado_fecha",
+            "unique": false,
+            "fields": [
+              "estado_evento",
+              "fecha_evento"
+            ]
+          }
+        ],
+        "color": "#8eb7ff",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "86",
+        "name": "entrada",
+        "x": -66.64082097005468,
+        "y": 654.4608261430941,
+        "fields": [
+          {
+            "id": "87",
+            "name": "id_entrada",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador interno del ticket."
+          },
+          {
+            "id": "88",
+            "name": "codigo_unico_entrada",
+            "type": "UUID",
+            "default": "gen_random_uuid()",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "Codigo que identifica el ticket y se utiliza para validarlo."
+          },
+          {
+            "id": "89",
+            "name": "id_evento",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "f5743bfb-12b2-40d5-87af-fb8e552008dd",
+            "name": "id_tipo_entrada",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Tarifa aplicada. Nulo en entradas historicas; la aplicacion debe validar que el tipo pertenezca al mismo evento."
+          },
+          {
+            "id": "90",
+            "name": "id_persona_titular",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Persona titular que utilizara la entrada."
+          },
+          {
+            "id": "91",
+            "name": "id_compra",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Puede ser nulo para una entrada de cortesia."
+          },
+          {
+            "id": "92",
+            "name": "estado_entrada",
+            "type": "ESTADO_ENTRADA",
+            "default": "CONFIRMADA",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "93",
+            "name": "precio_pagado_entrada",
+            "type": "NUMERIC",
+            "default": "",
+            "check": "precio_pagado_entrada >= 0",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Precio historico al momento de emitir el ticket.",
+            "size": "12,2"
+          },
+          {
+            "id": "135827d9-8960-4f9c-a902-f4c81b3c7fe7",
+            "name": "moneda_entrada",
+            "type": "CHAR",
+            "default": "ARS",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Moneda del precio pagado; se congela junto con el precio historico.",
+            "size": "3"
+          },
+          {
+            "id": "94",
+            "name": "fecha_emision_entrada",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "95",
+            "name": "fecha_validacion_entrada",
+            "type": "TIMESTAMP",
+            "default": "",
+            "check": "((estado_entrada = 'USADA' AND fecha_validacion_entrada IS NOT NULL) OR (estado_entrada <> 'USADA' AND fecha_validacion_entrada IS NULL))",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Momento del primer uso; nulo mientras no fue utilizada."
+          },
+          {
+            "id": "141dd420-9792-4f6b-a68b-22cd687f6141",
+            "name": "version_entrada",
+            "type": "BIGINT",
+            "default": 0,
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Version para control de concurrencia optimista (@Version) al validar o anular el ticket."
+          },
+          {
+            "id": "97",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "98",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Cada fila es un ticket individual. Una compra de tres tickets crea tres entradas con codigos diferentes. El precio y la moneda se congelan aqui para que una modificacion del evento o de la tarifa no cambie compras anteriores.",
+        "indices": [
+          {
+            "name": "idx_entrada_evento_estado",
+            "unique": false,
+            "fields": [
+              "id_evento",
+              "estado_entrada"
+            ]
+          },
+          {
+            "name": "idx_entrada_titular_estado",
+            "unique": false,
+            "fields": [
+              "id_persona_titular",
+              "estado_entrada"
+            ]
+          },
+          {
+            "name": "idx_entrada_compra",
+            "unique": false,
+            "fields": [
+              "id_compra"
+            ]
+          },
+          {
+            "name": "idx_entrada_tipo_entrada",
+            "unique": false,
+            "fields": [
+              "id_tipo_entrada"
+            ]
+          }
+        ],
+        "color": "#4dee8a",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "103",
+        "name": "compra",
+        "x": -612.896405491182,
+        "y": 597.0392082940454,
+        "fields": [
+          {
+            "id": "104",
+            "name": "id_compra",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico de la operacion."
+          },
+          {
+            "id": "105",
+            "name": "id_usuario_comprador",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Usuario que realiza la compra."
+          },
+          {
+            "id": "106",
+            "name": "fecha_compra",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "107",
+            "name": "estado_compra",
+            "type": "ESTADO_COMPRA",
+            "default": "PENDIENTE",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "e9eee116-f458-4b16-a534-80540b0bf2f4",
+            "name": "moneda_compra",
+            "type": "CHAR",
+            "default": "ARS",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Moneda de la compra; debe coincidir con la de sus pagos y reembolsos.",
+            "size": "3"
+          },
+          {
+            "id": "108",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "109",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Cabecera de la operacion. No contiene evento, cantidad ni total para evitar inconsistencias: esos datos se obtienen consultando las entradas de la compra. La moneda se fija aca y debe coincidir con la de los pagos.",
+        "indices": [
+          {
+            "name": "idx_compra_usuario_fecha",
+            "unique": false,
+            "fields": [
+              "id_usuario_comprador",
+              "fecha_compra"
+            ]
+          }
+        ],
+        "color": "#4dee8a",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "1",
+        "name": "notificacion",
+        "x": 834.2737351085534,
+        "y": -119.85978602107957,
+        "fields": [
+          {
+            "id": "2",
+            "name": "id_notificacion",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": ""
+          },
+          {
+            "id": "3",
+            "name": "id_usuario",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "4",
+            "name": "id_evento",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Opcional: una notificacion general no necesita evento."
+          },
+          {
+            "id": "3f8JmWOecxo8qvVYHuSEj",
+            "name": "id_compra",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "",
+            "size": "",
+            "values": []
+          },
+          {
+            "id": "6",
+            "name": "tipo_notificacion",
+            "type": "VARCHAR",
+            "default": "INFO",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "20"
+          },
+          {
+            "id": "WPdyMhPwIt5NSzqGD5i43",
+            "name": "asunto_notificacion",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "",
+            "size": 200
+          },
+          {
+            "id": "5",
+            "name": "mensaje_notificacion",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "56nb795VB77Mw34m4EmxB",
+            "name": "estado_envio_notificacion",
+            "type": "ESTADO_ENVIO_NOTIFICACION",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "",
+            "size": "",
+            "values": []
+          },
+          {
+            "id": "eed78372-b54a-4450-b8ca-f6c17c34ab57",
+            "name": "leida_notificacion",
+            "type": "BOOLEAN",
+            "default": false,
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Indica si el usuario destinatario ya marco la notificacion como leida en su bandeja."
+          },
+          {
+            "id": "9",
+            "name": "fecha_envio_notificacion",
+            "type": "TIMESTAMP",
+            "default": "",
+            "check": "fecha_envio_notificacion IS NULL OR fecha_envio_notificacion >= created_at",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "Nc_9f72Hq3gyea3ieUJHs",
+            "name": "error_envio",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "",
+            "size": "",
+            "values": []
+          },
+          {
+            "id": "10",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": ""
+          },
+          {
+            "id": "11",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicación o un trigger."
+          }
+        ],
+        "comment": "Mensaje enviado a un usuario, por ejemplo una compra confirmada o la cancelacion de un evento. La relacion con evento es opcional.\n\nCHECK constraints:\n- fecha_envio_notificacion IS NULL OR fecha_envio_notificacion >= created_at",
+        "indices": [
+          {
+            "name": "idx_notificacion_usuario_fecha",
+            "unique": false,
+            "fields": [
+              "id_usuario",
+              "created_at"
+            ]
+          },
+          {
+            "name": "idx_notificacion_evento",
+            "unique": false,
+            "fields": [
+              "id_evento"
+            ]
+          },
+          {
+            "name": "idx_notificacion_compra",
+            "unique": false,
+            "fields": [
+              "id_compra"
+            ]
+          }
+        ],
+        "color": "#8eb7ff",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "6dad9e17-2062-4c85-be3c-6c6d5a0192d1",
+        "name": "tipo_entrada",
+        "x": 430,
+        "y": 654,
+        "fields": [
+          {
+            "id": "c4b119cd-6d09-4a4f-88b4-f3bff3d8df4b",
+            "name": "id_tipo_entrada",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico de la tarifa."
+          },
+          {
+            "id": "0489a1e8-1e56-48dc-830e-a4a2bfa062b0",
+            "name": "id_evento",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Evento al que pertenece la tarifa."
+          },
+          {
+            "id": "635c6d1e-747b-4b2f-9393-d88c6d7b8028",
+            "name": "nombre_tipo_entrada",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Nombre visible de la tarifa, por ejemplo General, VIP o Preventa.",
+            "size": "100"
+          },
+          {
+            "id": "180b7653-b8df-4347-971e-7e7a064058eb",
+            "name": "descripcion_tipo_entrada",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Descripcion o condiciones de la tarifa."
+          },
+          {
+            "id": "9f85f54e-2ba1-41c8-a6de-0bf85e0d8133",
+            "name": "precio_tipo_entrada",
+            "type": "NUMERIC",
+            "default": "",
+            "check": "precio_tipo_entrada >= 0",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Precio de lista de la tarifa.",
+            "size": "12,2"
+          },
+          {
+            "id": "50cc9996-725b-489d-ae50-ab46acd9f87f",
+            "name": "moneda_tipo_entrada",
+            "type": "CHAR",
+            "default": "ARS",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Moneda del precio de lista.",
+            "size": "3"
+          },
+          {
+            "id": "f0aae812-137f-4ba1-beeb-3c67cf6730e4",
+            "name": "activo_tipo_entrada",
+            "type": "BOOLEAN",
+            "default": true,
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Indica si la tarifa esta disponible para nuevas compras."
+          },
+          {
+            "id": "873099c7-35f2-45c8-98e8-34c5d50ec5b1",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Auditoria tecnica."
+          },
+          {
+            "id": "695c9795-7ea8-4c92-ba4f-ac37091c3cdb",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicacion o un trigger."
+          }
+        ],
+        "comment": "Tarifa configurada por evento (general, VIP, preventa, etc.). El precio de lista vive aca; entrada.precio_pagado conserva el precio historico.",
+        "indices": [
+          {
+            "name": "idx_tipo_entrada_evento",
+            "unique": false,
+            "fields": [
+              "id_evento"
+            ]
+          }
+        ],
+        "color": "#4dee8a",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false,
+        "uniqueConstraints": [
+          {
+            "name": "uq_tipo_entrada_evento_nombre",
+            "fields": [
+              "id_evento",
+              "nombre_tipo_entrada"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "6266c597-de35-43aa-a87e-97db88022e2f",
+        "name": "pago",
+        "x": 1256.6782526201814,
+        "y": 544.1027865228115,
+        "fields": [
+          {
+            "id": "a7e5317d-3e49-49fc-bb6f-830722fd7fce",
+            "name": "id_pago",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del pago."
+          },
+          {
+            "id": "cb4915e5-4172-4b69-ac6d-26e15217b752",
+            "name": "id_compra",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Compra a la que corresponde el pago."
+          },
+          {
+            "id": "0dd24d15-b782-44c6-a9d5-1e1b49686d66",
+            "name": "proveedor_pago",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Proveedor o medio: MERCADO_PAGO, STRIPE, MANUAL, etc.",
+            "size": "50"
+          },
+          {
+            "id": "39f794f0-69ab-447d-b606-613a76f16411",
+            "name": "referencia_externa_pago",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Identificador del pago en el proveedor. Unico junto con el proveedor.",
+            "size": "255"
+          },
+          {
+            "id": "7d8c6dac-742b-4165-b00b-eb018f4b6122",
+            "name": "monto_pago",
+            "type": "NUMERIC",
+            "default": "",
+            "check": "monto_pago > 0",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Monto efectivamente cobrado o intentado.",
+            "size": "12,2"
+          },
+          {
+            "id": "4db8a4d0-7845-465a-b806-b3efadc9eba2",
+            "name": "moneda_pago",
+            "type": "CHAR",
+            "default": "ARS",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Moneda del pago.",
+            "size": "3"
+          },
+          {
+            "id": "2a183406-6fa4-48ca-9bad-e76cd464e6d7",
+            "name": "estado_pago",
+            "type": "ESTADO_PAGO",
+            "default": "PENDIENTE",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Estado del pago: PENDIENTE, APROBADO, RECHAZADO, REEMBOLSADO o CANCELADO."
+          },
+          {
+            "id": "58871898-6556-4f34-bcff-c4253a07a639",
+            "name": "fecha_creacion_pago",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Fecha de creacion del intento de pago en el proveedor."
+          },
+          {
+            "id": "ea6be74a-2b82-4152-b3af-a3bedad6afbb",
+            "name": "fecha_confirmacion_pago",
+            "type": "TIMESTAMP",
+            "default": "",
+            "check": "fecha_confirmacion_pago IS NULL OR fecha_confirmacion_pago >= fecha_creacion_pago",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Fecha en que el proveedor confirmo el pago."
+          },
+          {
+            "id": "2c7c8857-7094-45e3-ab59-05608f54642f",
+            "name": "respuesta_proveedor_pago",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Respuesta cruda del proveedor, serializada como JSON o texto."
+          },
+          {
+            "id": "88bfce30-25d2-44ea-9719-dcd0f104678a",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Auditoria tecnica."
+          },
+          {
+            "id": "422b3040-4c0b-48f6-b50e-3a087c60272b",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicacion o un trigger."
+          }
+        ],
+        "comment": "Intento o confirmacion de pago de una compra. Una compra puede tener varios intentos; la aplicacion debe garantizar un solo pago APROBADO por compra.",
+        "indices": [
+          {
+            "name": "idx_pago_compra",
+            "unique": false,
+            "fields": [
+              "id_compra"
+            ]
+          },
+          {
+            "name": "idx_pago_estado_fecha",
+            "unique": false,
+            "fields": [
+              "estado_pago",
+              "fecha_creacion_pago"
+            ]
+          }
+        ],
+        "color": "#fbbf24",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false,
+        "uniqueConstraints": [
+          {
+            "name": "uq_pago_proveedor_referencia",
+            "fields": [
+              "proveedor_pago",
+              "referencia_externa_pago"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "5bf16c64-1c86-435e-a1bb-faad7327ac3f",
+        "name": "reembolso",
+        "x": 1660,
+        "y": 548,
+        "fields": [
+          {
+            "id": "bcb92611-7bb1-4f68-9b4d-9fef796f28a0",
+            "name": "id_reembolso",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del reembolso."
+          },
+          {
+            "id": "18a31f58-8692-473e-bc01-75f281fae25b",
+            "name": "id_pago",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Pago sobre el que se realiza la devolucion."
+          },
+          {
+            "id": "dd2ec353-c695-4b5c-bf88-59ed2cd57aba",
+            "name": "monto_reembolso",
+            "type": "NUMERIC",
+            "default": "",
+            "check": "monto_reembolso > 0",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Monto devuelto.",
+            "size": "12,2"
+          },
+          {
+            "id": "79a33b8f-2485-4a8e-9d96-52b0103acf0b",
+            "name": "moneda_reembolso",
+            "type": "CHAR",
+            "default": "ARS",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Moneda del reembolso.",
+            "size": "3"
+          },
+          {
+            "id": "358fb6a2-d237-4e98-b6a8-06f861283ce4",
+            "name": "motivo_reembolso",
+            "type": "TEXT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Motivo de la devolucion."
+          },
+          {
+            "id": "9c17a93d-868c-413e-bd80-33015b02309d",
+            "name": "estado_reembolso",
+            "type": "ESTADO_REEMBOLSO",
+            "default": "PENDIENTE",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Estado del reembolso: PENDIENTE, APROBADO, RECHAZADO, PROCESADO o CANCELADO."
+          },
+          {
+            "id": "107ca58a-2297-43d3-b972-0392bc491005",
+            "name": "referencia_externa_reembolso",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Identificador del reembolso en el proveedor.",
+            "size": "255"
+          },
+          {
+            "id": "af5ad8d4-921c-44c8-9643-71f3d861c624",
+            "name": "fecha_solicitud_reembolso",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Fecha en que se solicito la devolucion."
+          },
+          {
+            "id": "0a1f8805-ca0e-4f9d-8a6b-833959608a05",
+            "name": "fecha_procesamiento_reembolso",
+            "type": "TIMESTAMP",
+            "default": "",
+            "check": "fecha_procesamiento_reembolso IS NULL OR fecha_procesamiento_reembolso >= fecha_solicitud_reembolso",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Fecha en que el reembolso fue procesado."
+          },
+          {
+            "id": "745e7a8a-2cde-4fc0-a7fa-67e816c709a2",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Auditoria tecnica."
+          },
+          {
+            "id": "124f4963-e069-4bf4-aacd-521b67af8c23",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicacion o un trigger."
+          }
+        ],
+        "comment": "Devolucion total o parcial asociada a un pago. Varios reembolsos pueden existir para un mismo pago; la aplicacion debe validar que la suma no supere el monto pagado.",
+        "indices": [
+          {
+            "name": "idx_reembolso_pago",
+            "unique": false,
+            "fields": [
+              "id_pago"
+            ]
+          },
+          {
+            "name": "idx_reembolso_estado_fecha",
+            "unique": false,
+            "fields": [
+              "estado_reembolso",
+              "fecha_solicitud_reembolso"
+            ]
+          }
+        ],
+        "color": "#fbbf24",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false,
+        "uniqueConstraints": [
+          {
+            "name": "uq_reembolso_referencia_externa",
+            "fields": [
+              "referencia_externa_reembolso"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "6bde6090-cf80-4356-bc1f-e57292d12666",
+        "name": "verificacion_identidad",
+        "x": 815,
+        "y": -785,
+        "fields": [
+          {
+            "id": "03508f6d-cb78-4450-b98e-019ba0bb3b92",
+            "name": "id_verificacion",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico de la verificacion KYC."
+          },
+          {
+            "id": "f08e60ca-53ec-4b8f-bbec-6a235b63fae4",
+            "name": "id_usuario",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "Cuenta de usuario verificada (relacion 1 a 1)."
+          },
+          {
+            "id": "cfc3471d-5317-49fa-bb40-adb3335ee9ae",
+            "name": "metodo_verificacion",
+            "type": "METODO_VERIFICACION",
+            "default": "BIOMETRIA_RENAPER",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Canal utilizado para validar la identidad: BIOMETRIA_RENAPER, DOCUMENTO_DNI u OTP_EMAIL."
+          },
+          {
+            "id": "59083738-e0e6-49de-9262-fedd1dd94316",
+            "name": "estado_verificacion",
+            "type": "ESTADO_VERIFICACION",
+            "default": "PENDIENTE",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Estado del tramite KYC: PENDIENTE, VERIFICADA o RECHAZADA."
+          },
+          {
+            "id": "775233db-7020-4ec6-bba3-5d70d3e0d9cb",
+            "name": "codigo_validacion_kyc",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "Token o codigo externo unico devuelto por el validador de identidad.",
+            "size": "100"
+          },
+          {
+            "id": "01a1bbf6-43e1-4a21-880d-1791cc43c8d4",
+            "name": "observacion_verificacion",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Detalle o motivo de aprobacion/rechazo de la validacion.",
+            "size": "255"
+          },
+          {
+            "id": "89374ecc-3374-4218-965b-8dfb15fad609",
+            "name": "fecha_solicitud",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Momento en que se inicio la validacion KYC."
+          },
+          {
+            "id": "485bddf2-34a6-4788-a632-f006fec83a03",
+            "name": "fecha_verificacion",
+            "type": "TIMESTAMP",
+            "default": "",
+            "check": "fecha_verificacion IS NULL OR fecha_verificacion >= fecha_solicitud",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Momento en que se resolvio la verificacion."
+          },
+          {
+            "id": "b2134053-068a-4923-923e-c32afac33a5e",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Auditoria tecnica."
+          },
+          {
+            "id": "6a6227f0-c558-4f0c-808d-f52e9f87b11a",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicacion o un trigger."
+          }
+        ],
+        "comment": "Validacion KYC obligatoria del usuario antes de comprar entradas. No duplica DNI ni nombre porque se obtienen a traves de usuario -> persona.",
+        "indices": [
+          {
+            "name": "idx_verificacion_estado",
+            "unique": false,
+            "fields": [
+              "estado_verificacion"
+            ]
+          },
+          {
+            "name": "idx_verificacion_usuario",
+            "unique": true,
+            "fields": [
+              "id_usuario"
+            ]
+          }
+        ],
+        "color": "#ff6363",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "0d2ec223-beab-4319-8a92-3d69a2d54247",
+        "name": "comprobante",
+        "x": 2050,
+        "y": 548,
+        "fields": [
+          {
+            "id": "72daf777-99bb-4da1-a60d-6c9e055b2887",
+            "name": "id_comprobante",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del comprobante emitido."
+          },
+          {
+            "id": "1688282d-b506-4125-9b26-08e4c45c220c",
+            "name": "id_pago",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "Pago aprobado que respalda el comprobante (relacion 1 a 1)."
+          },
+          {
+            "id": "740e2ec9-4975-4908-bd96-172e50293899",
+            "name": "numero_comprobante",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "Numero correlativo legible del recibo o factura.",
+            "size": "50"
+          },
+          {
+            "id": "fa3c1e42-200a-4b58-959d-6cabdf308707",
+            "name": "tipo_comprobante",
+            "type": "TIPO_COMPROBANTE",
+            "default": "RECIBO_DIGITAL",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Tipo de documento: RECIBO_DIGITAL, FACTURA_B o FACTURA_C."
+          },
+          {
+            "id": "8e16a997-ea58-4654-907b-ecc5792965c7",
+            "name": "hash_cruce_seguridad",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": true,
+            "notNull": true,
+            "increment": false,
+            "comment": "Firma SHA-256 de integridad que cruza pago, compra y titular.",
+            "size": "64"
+          },
+          {
+            "id": "80c222f6-dec3-44c9-aa74-3d37cfe81a3d",
+            "name": "estado_envio_comprobante",
+            "type": "ESTADO_ENVIO_COMPROBANTE",
+            "default": "ENVIADO",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Estado del envio digital: PENDIENTE, ENVIADO o ERROR_ENVIO."
+          },
+          {
+            "id": "e97194e0-3258-4e6f-85d7-37d4eb09a75a",
+            "name": "fecha_emision_comprobante",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Fecha y hora de emision del comprobante."
+          },
+          {
+            "id": "217427c7-f012-4947-99a5-7dd66306f3f7",
+            "name": "created_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Auditoria tecnica."
+          },
+          {
+            "id": "d0c78911-b0bf-4445-afb6-503f57b98f55",
+            "name": "updated_at",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Se actualiza en cada UPDATE desde la aplicacion o un trigger."
+          }
+        ],
+        "comment": "Recibo o factura digital emitida al aprobarse un pago. Incluye firma SHA-256 de cruce de seguridad sin duplicar id_compra ni id_usuario.",
+        "indices": [
+          {
+            "name": "idx_comprobante_fecha",
+            "unique": false,
+            "fields": [
+              "fecha_emision_comprobante"
+            ]
+          },
+          {
+            "name": "idx_comprobante_pago",
+            "unique": true,
+            "fields": [
+              "id_pago"
+            ]
+          }
+        ],
+        "color": "#fbbf24",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "c2f80ec4-ad65-4c4b-9975-5bf5d511e540",
+        "name": "historial_estado_entrada",
+        "x": 815,
+        "y": 654,
+        "fields": [
+          {
+            "id": "72c1b103-d688-444e-8b3b-c5bbdf517290",
+            "name": "id_historial_entrada",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del cambio de estado del ticket."
+          },
+          {
+            "id": "80d5c4f6-6a5b-49ec-9a64-111b54c82388",
+            "name": "id_entrada",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Entrada cuyo cambio de estado se audita."
+          },
+          {
+            "id": "2eefc370-2dba-4886-8e97-aa29b8513e13",
+            "name": "id_usuario_responsable",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Usuario (cliente, organizador o admin) que ejecuto el cambio de estado."
+          },
+          {
+            "id": "2c1581cd-9ca4-4084-abf2-9f4f5aec693d",
+            "name": "estado_anterior_entrada",
+            "type": "ESTADO_ENTRADA",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Estado previo del ticket (nulo en el alta inicial)."
+          },
+          {
+            "id": "1755165f-9394-4ace-acd3-98e9aa480501",
+            "name": "estado_nuevo_entrada",
+            "type": "ESTADO_ENTRADA",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Nuevo estado asignado al ticket: CONFIRMADA, USADA o ANULADA."
+          },
+          {
+            "id": "03965d47-1003-4cb1-9036-44f31cbe16ed",
+            "name": "motivo_cambio_entrada",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Motivo o contexto del cambio (ej. emision, lectura QR en puerta, anulacion).",
+            "size": "300"
+          },
+          {
+            "id": "978735d4-aca5-4099-a0b3-160462d424f1",
+            "name": "fecha_cambio_entrada",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Fecha y hora exacta de la transicion de estado."
+          }
+        ],
+        "comment": "Trazabilidad completa del ciclo de vida de cada entrada: emision inicial (CONFIRMADA), validacion nominal en puerta (USADA) o anulacion (ANULADA).",
+        "indices": [
+          {
+            "name": "idx_historial_entrada_fecha",
+            "unique": false,
+            "fields": [
+              "id_entrada",
+              "fecha_cambio_entrada"
+            ]
+          },
+          {
+            "name": "idx_historial_usuario_resp",
+            "unique": false,
+            "fields": [
+              "id_usuario_responsable"
+            ]
+          }
+        ],
+        "color": "#4dee8a",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      },
+      {
+        "id": "7139e038-2fb5-4de2-8106-5690070a42ab",
+        "name": "auditoria_seguridad",
+        "x": 1257,
+        "y": -785,
+        "fields": [
+          {
+            "id": "7add91e6-2ad6-4d1c-9b55-1c14b865ad4d",
+            "name": "id_auditoria",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": true,
+            "unique": true,
+            "notNull": true,
+            "increment": true,
+            "comment": "Identificador unico del evento de seguridad."
+          },
+          {
+            "id": "8a9a0836-1358-411f-b7ac-e4102f2dea6a",
+            "name": "id_usuario",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Usuario actor que ejecuto la accion (nulo si fue un intento fallido anonimo)."
+          },
+          {
+            "id": "dd6027d5-2519-4008-8896-282479a7f5be",
+            "name": "accion_auditoria",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Codigo de la accion auditada (LOGIN_EXITOSO, COMPRA_CONFIRMADA, VALIDACION_PUERTA, etc.).",
+            "size": "50"
+          },
+          {
+            "id": "352781c8-246c-4987-bd88-4e431f4b0cc3",
+            "name": "entidad_afectada",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Nombre de la tabla o entidad de negocio involucrada.",
+            "size": "50"
+          },
+          {
+            "id": "8ae733af-2344-4eba-b66f-6553bf41380e",
+            "name": "id_registro_afectado",
+            "type": "BIGINT",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "ID primario del registro afectado dentro de la entidad."
+          },
+          {
+            "id": "f53dc684-217a-4e0a-be29-7c6241fdfc25",
+            "name": "resultado_auditoria",
+            "type": "VARCHAR",
+            "default": "EXITOSO",
+            "check": "resultado_auditoria IN ('EXITOSO', 'RECHAZADO', 'ERROR')",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Resultado de la operacion: EXITOSO, RECHAZADO o ERROR.",
+            "size": "20"
+          },
+          {
+            "id": "218f713e-4343-488b-9794-daa733e9c874",
+            "name": "ip_origen",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": false,
+            "increment": false,
+            "comment": "Direccion IPv4 o IPv6 desde donde se origino la peticion.",
+            "size": "45"
+          },
+          {
+            "id": "3aeb01cb-c071-4f21-9251-662ebed931f0",
+            "name": "detalle_tracking",
+            "type": "VARCHAR",
+            "default": "",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Descripcion inmutable del evento para analisis forense.",
+            "size": "500"
+          },
+          {
+            "id": "60b5b4a0-3b21-4488-98ea-cf3bafb8a5f2",
+            "name": "fecha_auditoria",
+            "type": "TIMESTAMP",
+            "default": "now()",
+            "check": "",
+            "primary": false,
+            "unique": false,
+            "notNull": true,
+            "increment": false,
+            "comment": "Marca de tiempo inmutable (append-only) del evento."
+          }
+        ],
+        "comment": "Bitacora inmutable (append-only) de seguridad informatica y auditoria de operaciones criticas (login, KYC, compras, validacion en puerta).",
+        "indices": [
+          {
+            "name": "idx_auditoria_usuario_fecha",
+            "unique": false,
+            "fields": [
+              "id_usuario",
+              "fecha_auditoria"
+            ]
+          },
+          {
+            "name": "idx_auditoria_entidad_registro",
+            "unique": false,
+            "fields": [
+              "entidad_afectada",
+              "id_registro_afectado"
+            ]
+          },
+          {
+            "name": "idx_auditoria_accion_fecha",
+            "unique": false,
+            "fields": [
+              "accion_auditoria",
+              "fecha_auditoria"
+            ]
+          }
+        ],
+        "color": "#c084fc",
+        "locked": false,
+        "hidden": false,
+        "collapsed": false
+      }
+    ],
+    "references": [
+      {
+        "id": "3e8feb9e-1364-4b1b-80dd-a531c235b054",
+        "name": "fk_usuario_persona",
+        "startTableId": "77",
+        "startFieldId": "78",
+        "endTableId": "47",
+        "endFieldId": "49",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "78",
+            "endFieldId": "49"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Set null"
+      },
+      {
+        "id": "a30527e2-187d-4567-841a-51ea49767be2",
+        "name": "fk_usuario_rol",
+        "startTableId": "31",
+        "startFieldId": "32",
+        "endTableId": "47",
+        "endFieldId": "50",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "32",
+            "endFieldId": "50"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "2d0af20a-f49f-461b-b053-f9200f7243d6",
+        "name": "fk_evento_organizador",
+        "startTableId": "47",
+        "startFieldId": "48",
+        "endTableId": "58",
+        "endFieldId": "60",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "48",
+            "endFieldId": "60"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "70360192-67ec-425a-b4b6-225d8dff8580",
+        "name": "fk_evento_ubicacion",
+        "startTableId": "15",
+        "startFieldId": "16",
+        "endTableId": "58",
+        "endFieldId": "61",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "16",
+            "endFieldId": "61"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "da5cdb5f-d4d8-4c54-998f-6d262fb5c27b",
+        "name": "fk_evento_categoria",
+        "startTableId": "24",
+        "startFieldId": "25",
+        "endTableId": "58",
+        "endFieldId": "62",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "25",
+            "endFieldId": "62"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "dd1a2a61-6090-4ab8-a419-331c01b35f84",
+        "name": "fk_compra_usuario",
+        "startTableId": "47",
+        "startFieldId": "48",
+        "endTableId": "103",
+        "endFieldId": "105",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "48",
+            "endFieldId": "105"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "e1a63512-ede0-4b09-856a-fea761954375",
+        "name": "fk_entrada_compra",
+        "startTableId": "103",
+        "startFieldId": "104",
+        "endTableId": "86",
+        "endFieldId": "91",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "104",
+            "endFieldId": "91"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "a22da40c-f251-4dbd-81e7-45319939f4d4",
+        "name": "fk_entrada_evento",
+        "startTableId": "58",
+        "startFieldId": "59",
+        "endTableId": "86",
+        "endFieldId": "89",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "59",
+            "endFieldId": "89"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "2f74178c-c998-4ff4-b13e-1c6fa1a18232",
+        "name": "fk_entrada_titular",
+        "startTableId": "77",
+        "startFieldId": "78",
+        "endTableId": "86",
+        "endFieldId": "90",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "78",
+            "endFieldId": "90"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict"
+      },
+      {
+        "id": "0bee27c2-2bb3-428e-87ba-99952e9dd0c4",
+        "name": "fk_notificacion_usuario",
+        "startTableId": "47",
+        "startFieldId": "48",
+        "endTableId": "1",
+        "endFieldId": "3",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "48",
+            "endFieldId": "3"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Cascade"
+      },
+      {
+        "id": "340b98fd-abaf-4d32-aab0-2fd1e6dab2d7",
+        "name": "fk_notificacion_evento",
+        "startTableId": "58",
+        "startFieldId": "59",
+        "endTableId": "1",
+        "endFieldId": "4",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "59",
+            "endFieldId": "4"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Set null"
+      },
+      {
+        "startTableId": "103",
+        "startFieldId": "104",
+        "endTableId": "1",
+        "endFieldId": "3f8JmWOecxo8qvVYHuSEj",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "104",
+            "endFieldId": "3f8JmWOecxo8qvVYHuSEj"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Set null",
+        "name": "fk_compra_id_compra_notificacion",
+        "id": "EnMVRTbwG-49fvCzFRXOu"
+      },
+      {
+        "startTableId": "58",
+        "startFieldId": "59",
+        "endTableId": "6dad9e17-2062-4c85-be3c-6c6d5a0192d1",
+        "endFieldId": "0489a1e8-1e56-48dc-830e-a4a2bfa062b0",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "59",
+            "endFieldId": "0489a1e8-1e56-48dc-830e-a4a2bfa062b0"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict",
+        "name": "fk_tipo_entrada_evento",
+        "id": "6cdc74c9-b252-4ab3-b4b3-dac876061a06"
+      },
+      {
+        "startTableId": "6dad9e17-2062-4c85-be3c-6c6d5a0192d1",
+        "startFieldId": "c4b119cd-6d09-4a4f-88b4-f3bff3d8df4b",
+        "endTableId": "86",
+        "endFieldId": "f5743bfb-12b2-40d5-87af-fb8e552008dd",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "c4b119cd-6d09-4a4f-88b4-f3bff3d8df4b",
+            "endFieldId": "f5743bfb-12b2-40d5-87af-fb8e552008dd"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict",
+        "name": "fk_entrada_tipo_entrada",
+        "id": "833d8efd-6eeb-4dbf-a771-1f2577899a8f"
+      },
+      {
+        "startTableId": "103",
+        "startFieldId": "104",
+        "endTableId": "6266c597-de35-43aa-a87e-97db88022e2f",
+        "endFieldId": "cb4915e5-4172-4b69-ac6d-26e15217b752",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "104",
+            "endFieldId": "cb4915e5-4172-4b69-ac6d-26e15217b752"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict",
+        "name": "fk_pago_compra",
+        "id": "047b55f8-b560-42c4-a71a-f64efbecbf3f"
+      },
+      {
+        "startTableId": "6266c597-de35-43aa-a87e-97db88022e2f",
+        "startFieldId": "a7e5317d-3e49-49fc-bb6f-830722fd7fce",
+        "endTableId": "5bf16c64-1c86-435e-a1bb-faad7327ac3f",
+        "endFieldId": "18a31f58-8692-473e-bc01-75f281fae25b",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "a7e5317d-3e49-49fc-bb6f-830722fd7fce",
+            "endFieldId": "18a31f58-8692-473e-bc01-75f281fae25b"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict",
+        "name": "fk_reembolso_pago",
+        "id": "865bdb86-5a0f-4991-866e-0b8ea27298b8"
+      },
+      {
+        "startTableId": "6bde6090-cf80-4356-bc1f-e57292d12666",
+        "startFieldId": "f08e60ca-53ec-4b8f-bbec-6a235b63fae4",
+        "endTableId": "47",
+        "endFieldId": "48",
+        "cardinality": "one_to_one",
+        "fields": [
+          {
+            "startFieldId": "f08e60ca-53ec-4b8f-bbec-6a235b63fae4",
+            "endFieldId": "48"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Cascade",
+        "name": "fk_verificacion_usuario",
+        "id": "4b70de06-d51d-41bc-88ae-2fd7390da3e1"
+      },
+      {
+        "startTableId": "0d2ec223-beab-4319-8a92-3d69a2d54247",
+        "startFieldId": "1688282d-b506-4125-9b26-08e4c45c220c",
+        "endTableId": "6266c597-de35-43aa-a87e-97db88022e2f",
+        "endFieldId": "a7e5317d-3e49-49fc-bb6f-830722fd7fce",
+        "cardinality": "one_to_one",
+        "fields": [
+          {
+            "startFieldId": "1688282d-b506-4125-9b26-08e4c45c220c",
+            "endFieldId": "a7e5317d-3e49-49fc-bb6f-830722fd7fce"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Restrict",
+        "name": "fk_comprobante_pago",
+        "id": "7a2c2f30-2343-4405-ad3e-5d56619d223e"
+      },
+      {
+        "startTableId": "86",
+        "startFieldId": "87",
+        "endTableId": "c2f80ec4-ad65-4c4b-9975-5bf5d511e540",
+        "endFieldId": "80d5c4f6-6a5b-49ec-9a64-111b54c82388",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "87",
+            "endFieldId": "80d5c4f6-6a5b-49ec-9a64-111b54c82388"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Cascade",
+        "name": "fk_historial_entrada",
+        "id": "ea2b1790-f148-4518-9ba2-28f29b7d1dc0"
+      },
+      {
+        "startTableId": "47",
+        "startFieldId": "48",
+        "endTableId": "c2f80ec4-ad65-4c4b-9975-5bf5d511e540",
+        "endFieldId": "2eefc370-2dba-4886-8e97-aa29b8513e13",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "48",
+            "endFieldId": "2eefc370-2dba-4886-8e97-aa29b8513e13"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Set null",
+        "name": "fk_historial_usuario_responsable",
+        "id": "53b727c6-03f5-43cc-8563-7c940024449d"
+      },
+      {
+        "startTableId": "47",
+        "startFieldId": "48",
+        "endTableId": "7139e038-2fb5-4de2-8106-5690070a42ab",
+        "endFieldId": "8a9a0836-1358-411f-b7ac-e4102f2dea6a",
+        "cardinality": "one_to_many",
+        "fields": [
+          {
+            "startFieldId": "48",
+            "endFieldId": "8a9a0836-1358-411f-b7ac-e4102f2dea6a"
+          }
+        ],
+        "updateConstraint": "Cascade",
+        "deleteConstraint": "Set null",
+        "name": "fk_auditoria_usuario",
+        "id": "48f2635c-5d81-4f6e-bb45-61d7d9c4b31c"
+      }
+    ],
+    "notes": [
+      {
+        "id": 0,
+        "x": -215.8018538700419,
+        "y": -870.6060408729583,
+        "title": "",
+        "content": "Una persona puede estar asociada a varias cuentas. Cada cuenta tiene un unico rol; la asociacion con persona es opcional, para cuenta de organizador la asociasion con persona es obligatoria.",
+        "color": "#ffe374",
+        "width": 543.8395133412893,
+        "height": 114,
+        "locked": false
+      },
+      {
+        "id": 1,
+        "x": -1983.7196823678123,
+        "y": -1065.6061327475,
+        "title": "MODULO 1: IDENTIDAD, AUTENTICACION Y KYC",
+        "content": "1. ENTIDADES Y QUE ALMACENAN:\n- persona: Identidad civil real (titular o usuario). Permite emitir tickets nominales aun sin cuenta.\n- usuario: Credenciales de acceso, estado de cuenta y perfil operativo.\n- rol: Catalogo de perfiles de autorizacion (ADMIN, ORGANIZADOR, CLIENTE).\n- verificacion_identidad: Evidencia del proceso KYC obligatorio antes de comprar.\n\n2. ATRIBUTOS RELEVANTES Y TIPOS:\n- persona: dni_persona (BIGINT), nombre_persona/apellido_persona (VARCHAR 100), email_persona (VARCHAR 255).\n- usuario: email_usuario (VARCHAR 255), password_hash_usuario (VARCHAR 255), estado_usuario (ENUM ESTADO_USUARIO).\n- verificacion_identidad: metodo_verificacion (ENUM), estado_verificacion (ENUM), codigo_validacion_kyc (VARCHAR 100), fecha_solicitud/fecha_verificacion (TIMESTAMP).\n\n3. PK, FK Y CARDINALIDAD:\n- PKs: id_persona, id_usuario, id_rol, id_verificacion (BIGINT IDENTITY).\n- persona (1) <-> (0..N) usuario via FK usuario.id_persona (ON DELETE SET NULL).\n- rol (1) <-> (1..N) usuario via FK usuario.id_rol (ON DELETE RESTRICT).\n- usuario (1) <-> (0..1) verificacion_identidad via FK UNIQUE verificacion_identidad.id_usuario (ON DELETE CASCADE).\n\n4. INTEGRIDAD Y NORMALIZACION (3FN):\n- UNIQUE: persona.dni_persona, usuario.email_usuario, rol.nombre_rol, verificacion_identidad.id_usuario y codigo_validacion_kyc.\n- CHECK: nombre_rol IN ('ADMIN','ORGANIZADOR','CLIENTE') y fecha_verificacion >= fecha_solicitud.\n- Decision 3FN: Se separo 'persona' de 'usuario' para no duplicar DNI/nombre en cuentas ni en 'verificacion_identidad'.",
+        "color": "#ffe374",
+        "width": 590,
+        "height": 834,
+        "locked": false
+      },
+      {
+        "id": 2,
+        "x": -1976.9656003390626,
+        "y": -128.0492334065625,
+        "title": "MODULO 2: EVENTOS, UBICACIONES Y NOTIFICACIONES",
+        "content": "1. ENTIDADES Y QUE ALMACENAN:\n- categoria: Clasificacion tematica del catalogo (Musica, Teatro, Deportes, etc.).\n- ubicacion: Recinto fisico con direccion y capacidad maxima habilitada.\n- evento: Publicacion creada por un organizador con fecha, hora, cupo y estado.\n- notificacion: Avisos enviados al usuario por compras o cancelaciones.\n\n2. ATRIBUTOS RELEVANTES Y TIPOS:\n- ubicacion: nombre_ubicacion (VARCHAR 150), capacidad_maxima_ubicacion (INT), activa_ubicacion (BOOLEAN).\n- evento: titulo_evento (VARCHAR 200), fecha_evento (DATE), hora_evento (TIME), cupo_total_evento (INT), estado_evento (ENUM), version_evento (BIGINT @Version).\n- notificacion: tipo_notificacion (VARCHAR 20), estado_envio_notificacion (ENUM), leida_notificacion (BOOLEAN).\n\n3. PK, FK Y CARDINALIDAD:\n- PKs: id_categoria, id_ubicacion, id_evento, id_notificacion (BIGINT IDENTITY).\n- usuario (1) <-> (0..N) evento via FK id_usuario_organizador (ON DELETE RESTRICT).\n- ubicacion (1) <-> (0..N) evento via FK id_ubicacion (ON DELETE RESTRICT).\n- categoria (1) <-> (0..N) evento via FK id_categoria (ON DELETE RESTRICT).\n- usuario/evento/compra (1) <-> (0..N) notificacion via FKs id_usuario, id_evento, id_compra.\n\n4. INTEGRIDAD Y NORMALIZACION (3FN):\n- CHECK: cupo_total_evento > 0, capacidad_maxima_ubicacion > 0, fecha_envio_notificacion >= created_at.\n- UNIQUE compuesto: uq_ubicacion_nombre_direccion (nombre_ubicacion, direccion_ubicacion).\n- Decision 3FN: 'evento' no guarda direccion en texto ni cupos_disponibles calculados; el stock se deriva contando entradas CONFIRMADA/USADA y el precio vive en 'tipo_entrada'.",
+        "color": "#ffe374",
+        "width": 590,
+        "height": 930,
+        "locked": false
+      },
+      {
+        "id": 3,
+        "x": -1355.5900536940624,
+        "y": 1261.0638180906249,
+        "title": "MODULO 3: COMPRAS, TARIFAS Y ENTRADAS NOMINALES",
+        "content": "1. ENTIDADES Y QUE ALMACENAN:\n- compra: Cabecera transaccional de la operacion realizada por un cliente comprador.\n- tipo_entrada: Tarifario por evento (General, VIP, Preventa) con precio de lista vigente.\n- entrada: Ticket individual nominal con UUID unico para QR y precio historico congelado.\n- historial_estado_entrada: Bitacora de cambios de estado del ticket (emision, uso en puerta, anulacion).\n\n2. ATRIBUTOS RELEVANTES Y TIPOS:\n- compra: fecha_compra (TIMESTAMP), estado_compra (ENUM), moneda_compra (CHAR 3).\n- tipo_entrada: nombre_tipo_entrada (VARCHAR 100), precio_tipo_entrada (NUMERIC 12,2), activo_tipo_entrada (BOOLEAN).\n- entrada: codigo_unico_entrada (UUID), estado_entrada (ENUM), precio_pagado_entrada (NUMERIC 12,2), fecha_validacion_entrada (TIMESTAMP), version_entrada (BIGINT @Version).\n\n3. PK, FK Y CARDINALIDAD:\n- PKs: id_compra, id_tipo_entrada, id_entrada, id_historial_entrada (BIGINT IDENTITY).\n- usuario (1) <-> (0..N) compra via FK id_usuario_comprador.\n- compra (1) <-> (1..N) entrada via FK id_compra; evento (1) <-> (0..N) entrada via FK id_evento.\n- tipo_entrada (1) <-> (0..N) entrada via FK id_tipo_entrada; persona (1) <-> (0..N) entrada via FK id_persona_titular.\n- entrada (1) <-> (1..N) historial_estado_entrada via FK id_entrada.\n\n4. INTEGRIDAD Y NORMALIZACION (3FN):\n- CHECK: precio_pagado_entrada >= 0, y consistencia entre estado_entrada = 'USADA' y fecha_validacion_entrada IS NOT NULL.\n- Decision 3FN: 'compra' no almacena id_evento, cantidad ni total (dependencias transitivas); se calculan desde 'entrada'. 'precio_pagado_entrada' congela el valor historico ante futuros cambios de tarifa.",
+        "color": "#ffe374",
+        "width": 590,
+        "height": 906,
+        "locked": false
+      },
+      {
+        "id": 4,
+        "x": 1174.2652348249997,
+        "y": 1299.8997897559377,
+        "title": "MODULO 4: PAGOS, REEMBOLSOS Y COMPROBANTES",
+        "content": "1. ENTIDADES Y QUE ALMACENAN:\n- pago: Intento o confirmacion de cobro en pasarela externa asociado a una compra.\n- reembolso: Devolucion monetaria total o parcial ejecutada sobre un pago aprobado.\n- comprobante: Documento digital (Recibo / Factura B o C) con firma criptografica SHA-256.\n\n2. ATRIBUTOS RELEVANTES Y TIPOS:\n- pago: proveedor_pago (VARCHAR 50), referencia_externa_pago (VARCHAR 255), monto_pago (NUMERIC 12,2), moneda_pago (CHAR 3), estado_pago (ENUM ESTADO_PAGO).\n- reembolso: monto_reembolso (NUMERIC 12,2), estado_reembolso (ENUM ESTADO_REEMBOLSO), motivo_reembolso (TEXT).\n- comprobante: numero_comprobante (VARCHAR 50), tipo_comprobante (ENUM), hash_cruce_seguridad (VARCHAR 64), estado_envio_comprobante (ENUM).\n\n3. PK, FK Y CARDINALIDAD:\n- PKs: id_pago, id_reembolso, id_comprobante (BIGINT IDENTITY).\n- compra (1) <-> (0..N) pago via FK pago.id_compra (permite reintentos ante rechazos).\n- pago (1) <-> (0..N) reembolso via FK reembolso.id_pago (permite devoluciones parciales o totales).\n- pago (1) <-> (0..1) comprobante via FK UNIQUE comprobante.id_pago.\n\n4. INTEGRIDAD Y NORMALIZACION (3FN):\n- UNIQUE: (proveedor_pago, referencia_externa_pago), numero_comprobante, hash_cruce_seguridad, id_pago en comprobante.\n- CHECK: monto_pago > 0, monto_reembolso > 0, fecha_confirmacion_pago >= fecha_creacion_pago.\n- Decision 3FN y PCI-DSS: No se almacenan PAN ni CVV de tarjetas. 'comprobante' se vincula 1:1 a 'pago' sin repetir id_compra ni id_usuario.",
+        "color": "#ffe374",
+        "width": 580,
+        "height": 834,
+        "locked": false
+      },
+      {
+        "id": 5,
+        "x": 1413.2137598643749,
+        "y": -1524.8837107025,
+        "title": "MODULO 5: SEGURIDAD Y AUDITORIA FORENSE",
+        "content": "1. ENTIDAD Y QUE ALMACENA:\n- auditoria_seguridad: Bitacora inmutable (append-only) de seguridad informatica que registra logins, validaciones KYC, compras, emisiones y escaneos de QR en puerta.\n\n2. ATRIBUTOS RELEVANTES Y TIPOS:\n- id_auditoria (BIGINT PK), id_usuario (BIGINT FK nullable), accion_auditoria (VARCHAR 50), entidad_afectada (VARCHAR 50), id_registro_afectado (BIGINT), resultado_auditoria (VARCHAR 20), ip_origen (VARCHAR 45 IPv4/IPv6), detalle_tracking (VARCHAR 500), fecha_auditoria (TIMESTAMP).\n\n3. PK, FK Y CARDINALIDAD:\n- usuario (1) <-> (0..N) auditoria_seguridad via FK id_usuario (ON DELETE SET NULL). Es anulable para registrar intentos fallidos de login sin usuario autenticado.\n\n4. INTEGRIDAD Y DISENO APPEND-ONLY:\n- CHECK: resultado_auditoria IN ('EXITOSO', 'RECHAZADO', 'ERROR').\n- No posee columna updated_at porque los registros de auditoria nunca se sobrescriben ni eliminan (trazabilidad forense).",
+        "color": "#ffe374",
+        "width": 640,
+        "height": 522,
+        "locked": false
+      },
+      {
+        "id": 6,
+        "x": 1180,
+        "y": -160,
+        "title": "GUIA DE PRESENTACION: MER, NORMALIZACION 3FN Y OPERACIONES DEL SISTEMA",
+        "content": "RESUMEN PARA PRESENTACION - ARQUITECTURA DE DATOS EN 3FN (16 TABLAS / 5 MODULOS):\n\n1. CRITERIOS DE NORMALIZACION APLICADOS:\n- 1FN (Atomicidad): Sin grupos repetitivos ni listas en columnas; una compra de N tickets genera N filas individuales en 'entrada' con su propio UUID.\n- 2FN (Dependencia Funcional Completa): Todas las tablas tienen PK simple (BIGINT IDENTITY) y los atributos dependen íntegramente de la clave primaria, con claves candidatas protegidas por UNIQUE.\n- 3FN (Sin Dependencias Transitivas):\n  * Identidad desacoplada: 'persona' concentra DNI y nombre real; ni 'usuario', ni 'verificacion_identidad', ni 'entrada' duplican datos filiatorios.\n  * Tarifas desacopladas: 'tipo_entrada' define los precios vigentes por evento; 'entrada.precio_pagado_entrada' congela el valor historico pagado.\n  * Cero columnas calculadas: El cupo disponible del evento, la cantidad de entradas y el total de la compra se calculan por agregacion sobre 'entrada'.\n\n2. REPRESENTACION DE LAS OPERACIONES PRINCIPALES DEL SISTEMA:\n- Registro y KYC: Alta en 'persona' + 'usuario' (rol CLIENTE/ORGANIZADOR) -> validacion en 'verificacion_identidad' (VERIFICADA) + traza en 'auditoria_seguridad'.\n- Publicacion de Evento: 'evento' (BORRADOR -> PUBLICADO) asociado a 'ubicacion' (validando cupo_total <= capacidad_maxima) + 'categoria' + tarifas en 'tipo_entrada'.\n- Compra de Entradas: Verifica KYC -> bloquea version en 'evento' -> crea 'compra' (CONFIRMADA) -> emite N filas en 'entrada' (con 'persona' titular y UUID) -> registra 'historial_estado_entrada' -> aprueba 'pago' -> emite 'comprobante' SHA-256 -> envia 'notificacion'.\n- Control de Acceso (Puerta) y Cancelacion: Escaneo QR pasa 'entrada' a USADA con 'fecha_validacion_entrada' y registro en 'historial_estado_entrada'. Si se cancela un evento, las entradas pasan a ANULADA, el pago a REEMBOLSADO y se inserta la devolucion en 'reembolso'.",
+        "color": "#a7f3d0",
+        "width": 1180,
+        "height": 522,
+        "locked": false
+      }
+    ],
+    "areas": [
+      {
+        "id": 0,
+        "name": "Modulo de identidad/autenticacion de la base de datos",
+        "x": -1340,
+        "y": -954.97,
+        "width": 2470,
+        "height": 724.78,
+        "color": "#ff6363",
+        "locked": false
+      },
+      {
+        "id": 1,
+        "name": "Modulo eventos",
+        "x": -1340,
+        "y": -193.9,
+        "width": 2470,
+        "height": 655.17,
+        "color": "#7175fa",
+        "locked": false
+      },
+      {
+        "id": 2,
+        "name": "Modulo de entradas",
+        "x": -1340,
+        "y": 488.38,
+        "width": 2470,
+        "height": 743.87,
+        "color": "#4dee8a",
+        "locked": false
+      },
+      {
+        "id": 3,
+        "name": "Modulo de pagos",
+        "x": 1180,
+        "y": 490.59,
+        "width": 1820,
+        "height": 745.38,
+        "color": "#f59e0b",
+        "locked": false
+      },
+      {
+        "id": 4,
+        "name": "Modulo de seguridad y auditoria",
+        "x": 1180,
+        "y": -954.97,
+        "width": 1180,
+        "height": 724.78,
+        "color": "#a855f7",
+        "locked": false
+      }
+    ],
+    "pan": {
+      "x": -1446.26121953656,
+      "y": -413.48773109439344
+    },
+    "zoom": 0.9187500000000003,
+    "enums": [
+      {
+        "id": "enum-0-ba87bbce",
+        "name": "estado_compra",
+        "values": [
+          "PENDIENTE",
+          "CONFIRMADA",
+          "CANCELADA"
+        ]
+      },
+      {
+        "id": "enum-1-2551bd78",
+        "name": "estado_entrada",
+        "values": [
+          "CONFIRMADA",
+          "USADA",
+          "ANULADA"
+        ]
+      },
+      {
+        "id": "enum-2-a97dca14",
+        "name": "estado_evento",
+        "values": [
+          "BORRADOR",
+          "PUBLICADO",
+          "CANCELADO"
+        ]
+      },
+      {
+        "id": "enum-3-e999b3e2",
+        "name": "estado_usuario",
+        "values": [
+          "ACTIVO",
+          "INACTIVO",
+          "SUSPENDIDO"
+        ]
+      },
+      {
+        "id": "C_5vjW6_hpHFujphWbPc2",
+        "name": "estado_envio_notificacion",
+        "values": [
+          "ENVIADA",
+          "FALLIDA",
+          "PENDIENTE"
+        ]
+      },
+      {
+        "id": "a90309bf-4927-42ba-8527-db1aa0176e1c",
+        "name": "estado_pago",
+        "values": [
+          "PENDIENTE",
+          "APROBADO",
+          "RECHAZADO",
+          "REEMBOLSADO",
+          "CANCELADO"
+        ]
+      },
+      {
+        "id": "aed6cfc8-f932-46a0-b951-a8632c54541d",
+        "name": "estado_reembolso",
+        "values": [
+          "PENDIENTE",
+          "APROBADO",
+          "RECHAZADO",
+          "PROCESADO",
+          "CANCELADO"
+        ]
+      },
+      {
+        "id": "98e40c87-0703-49af-9530-7cbad568b6b7",
+        "name": "metodo_verificacion",
+        "values": [
+          "BIOMETRIA_RENAPER",
+          "DOCUMENTO_DNI",
+          "OTP_EMAIL"
+        ]
+      },
+      {
+        "id": "f891250d-4880-4062-8056-ab9bd0857bbd",
+        "name": "estado_verificacion",
+        "values": [
+          "PENDIENTE",
+          "VERIFICADA",
+          "RECHAZADA"
+        ]
+      },
+      {
+        "id": "a96210f7-ba2f-456f-8345-28d7899736db",
+        "name": "tipo_comprobante",
+        "values": [
+          "RECIBO_DIGITAL",
+          "FACTURA_B",
+          "FACTURA_C"
+        ]
+      },
+      {
+        "id": "c8207a95-8724-42e6-a2fa-90f547957995",
+        "name": "estado_envio_comprobante",
+        "values": [
+          "PENDIENTE",
+          "ENVIADO",
+          "ERROR_ENVIO"
+        ]
+      }
+    ],
+    "types": []
+  },
+  "version": 543,
+  "created_at": "2026-09-29T12:43:55.983Z",
+  "updated_at": "2026-10-24T23:16:32.632Z"
+}
