@@ -25,14 +25,11 @@ function gfMul(x, y) {
 function rsGeneratorPoly(degree) {
   let poly = [1];
   for (let i = 0; i < degree; i++) {
-    const next = [1];
+    const next = Array(poly.length + 1).fill(0);
     const factor = GF_EXP[i];
     for (let j = 0; j < poly.length; j++) {
-      next[j] = (next[j] || 0) ^ gfMul(poly[j], factor);
-    }
-    next.push(0);
-    for (let j = 0; j < poly.length; j++) {
-      next[j + 1] ^= poly[j];
+      next[j] ^= poly[j];
+      next[j + 1] ^= gfMul(poly[j], factor);
     }
     poly = next.slice(0, poly.length + 1);
   }
@@ -56,22 +53,31 @@ function rsEncode(data, ecCount) {
 
 // Capacidades de bytes para modo M (Medium Error Correction)
 const VERSION_CAPACITY_M = [0, 14, 26, 42, 62, 84, 106];
-const VERSION_TOTAL_BYTES = [0, 26, 44, 70, 100, 134, 172];
-const VERSION_EC_BYTES = [0, 10, 16, 26, 36, 48, 64];
+const VERSION_DATA_BYTES = [0, 16, 28, 44, 64, 86, 108];
+const VERSION_EC_PER_BLOCK = [0, 10, 16, 26, 18, 24, 16];
+const VERSION_BLOCKS = [0, 1, 1, 1, 2, 2, 4];
 
 export function generateQRMatrix(text) {
   const utf8 = new TextEncoder().encode(text);
   let version = 1;
-  while (version < VERSION_CAPACITY_M.length && utf8.length > VERSION_CAPACITY_M[version]) {
+  while (
+    version < VERSION_CAPACITY_M.length &&
+    utf8.length > VERSION_CAPACITY_M[version]
+  ) {
     version++;
   }
-  if (version >= VERSION_CAPACITY_M.length) {
-    version = 6;
-  }
+  if (version >= VERSION_CAPACITY_M.length)
+    throw new RangeError(
+      "El contenido supera los 106 bytes admitidos por el QR local.",
+    );
 
   const moduleCount = version * 4 + 17;
-  const matrix = Array.from({ length: moduleCount }, () => Array(moduleCount).fill(null));
-  const isFunction = Array.from({ length: moduleCount }, () => Array(moduleCount).fill(false));
+  const matrix = Array.from({ length: moduleCount }, () =>
+    Array(moduleCount).fill(null),
+  );
+  const isFunction = Array.from({ length: moduleCount }, () =>
+    Array(moduleCount).fill(false),
+  );
 
   // 1. Finder patterns
   function addFinderPattern(r0, c0) {
@@ -82,7 +88,12 @@ export function generateQRMatrix(text) {
         if (row >= 0 && row < moduleCount && col >= 0 && col < moduleCount) {
           isFunction[row][col] = true;
           if (r >= 0 && r <= 6 && c >= 0 && c <= 6) {
-            matrix[row][col] = r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+            matrix[row][col] =
+              r === 0 ||
+              r === 6 ||
+              c === 0 ||
+              c === 6 ||
+              (r >= 2 && r <= 4 && c >= 2 && c <= 4);
           } else {
             matrix[row][col] = false;
           }
@@ -103,7 +114,7 @@ export function generateQRMatrix(text) {
       [6, 22],
       [6, 26],
       [6, 30],
-      [6, 34]
+      [6, 34],
     ][version];
 
     for (let r of alignPositions) {
@@ -114,7 +125,10 @@ export function generateQRMatrix(text) {
             const row = r + dr;
             const col = c + dc;
             isFunction[row][col] = true;
-            matrix[row][col] = Math.abs(dr) === 2 || Math.abs(dc) === 2 || (dr === 0 && dc === 0);
+            matrix[row][col] =
+              Math.abs(dr) === 2 ||
+              Math.abs(dc) === 2 ||
+              (dr === 0 && dc === 0);
           }
         }
       }
@@ -163,7 +177,7 @@ export function generateQRMatrix(text) {
     pushBits(byte, 8);
   }
 
-  const dataCapBytes = VERSION_CAPACITY_M[version];
+  const dataCapBytes = VERSION_DATA_BYTES[version];
   const maxBits = dataCapBytes * 8;
 
   // Terminator
@@ -192,13 +206,26 @@ export function generateQRMatrix(text) {
   }
 
   // Error correction
-  const ecBytesCount = VERSION_EC_BYTES[version];
-  const ecBytes = rsEncode(rawBytes, ecBytesCount);
+  const blockCount = VERSION_BLOCKS[version];
+  const blockSize = dataCapBytes / blockCount;
+  const blocks = Array.from({ length: blockCount }, (_, index) =>
+    rawBytes.slice(index * blockSize, (index + 1) * blockSize),
+  );
+  const correction = blocks.map((block) =>
+    rsEncode(block, VERSION_EC_PER_BLOCK[version]),
+  );
 
   // Combine data + EC
   const finalBits = [];
-  for (let b of rawBytes) pushBits(b, 8);
-  for (let b of ecBytes) pushBits(b, 8);
+  function appendCodeword(byte) {
+    for (let bit = 7; bit >= 0; bit--) finalBits.push((byte >>> bit) & 1);
+  }
+  for (let column = 0; column < blockSize; column++) {
+    for (const block of blocks) appendCodeword(block[column]);
+  }
+  for (let column = 0; column < VERSION_EC_PER_BLOCK[version]; column++) {
+    for (const block of correction) appendCodeword(block[column]);
+  }
 
   // 5. Place data bits
   let bitIdx = 0;
@@ -223,29 +250,16 @@ export function generateQRMatrix(text) {
   }
 
   // Format bits for Level M (00) and Mask 0 (000) -> Format string 101010000010010
-  const formatPattern = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
-  // Write format info around finders
-  const formatCoords = [
-    [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
-    [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8]
-  ];
-  for (let i = 0; i < 15; i++) {
-    const bit = formatPattern[i] === 1;
-    const [r, c] = formatCoords[i];
-    matrix[r][c] = bit;
-  }
-
-  const formatCoords2 = [
-    [moduleCount - 1, 8], [moduleCount - 2, 8], [moduleCount - 3, 8], [moduleCount - 4, 8],
-    [moduleCount - 5, 8], [moduleCount - 6, 8], [moduleCount - 7, 8],
-    [8, moduleCount - 8], [8, moduleCount - 7], [8, moduleCount - 6], [8, moduleCount - 5],
-    [8, moduleCount - 4], [8, moduleCount - 3], [8, moduleCount - 2], [8, moduleCount - 1]
-  ];
-  for (let i = 0; i < 15; i++) {
-    const bit = formatPattern[i] === 1;
-    const [r, c] = formatCoords2[i];
-    matrix[r][c] = bit;
-  }
+  const formatBits = 0x5412; // M, máscara 0, BCH y máscara de formato.
+  const formatBit = (index) => ((formatBits >>> index) & 1) === 1;
+  for (let i = 0; i <= 5; i++) matrix[i][8] = formatBit(i);
+  matrix[7][8] = formatBit(6);
+  matrix[8][8] = formatBit(7);
+  matrix[8][7] = formatBit(8);
+  for (let i = 9; i < 15; i++) matrix[8][14 - i] = formatBit(i);
+  for (let i = 0; i < 8; i++) matrix[8][moduleCount - 1 - i] = formatBit(i);
+  for (let i = 8; i < 15; i++) matrix[moduleCount - 15 + i][8] = formatBit(i);
+  matrix[moduleCount - 8][8] = true;
 
   return matrix;
 }

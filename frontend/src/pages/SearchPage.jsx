@@ -1,167 +1,177 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import EventGrid from "../components/events/EventGrid";
-import SectionTitle from "../components/ui/SectionTitle";
-import { categoryOptions as fallbackCategoryOptions } from "../data/mockEvents";
 import { getAllEvents, getCategories } from "../services/eventService";
+import {
+  isInDateRange,
+  normalizeText,
+  sortByDate,
+} from "../utils/collectionFilters";
 
 function SearchPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialCategory = searchParams.get("categoria") || "Todos";
-
+  const [params, setParams] = useSearchParams();
   const [events, setEvents] = useState([]);
-  const [categories, setCategories] = useState(fallbackCategoryOptions);
-  const [searchText, setSearchText] = useState("");
-  const [category, setCategory] = useState(initialCategory);
-  const [maxPrice, setMaxPrice] = useState(50000);
-  const [sortBy, setSortBy] = useState("fecha");
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [error, setError] = useState("");
+  const search = params.get("q") || "";
+  const category = params.get("categoria") || "";
+  const from = params.get("desde") || "";
+  const to = params.get("hasta") || "";
+  const price = params.get("precio") || "";
+  const sort = params.get("orden") || "asc";
+  function update(key, value) {
+    const next = new URLSearchParams(params);
+    value ? next.set(key, value) : next.delete(key);
+    setParams(next, { replace: true });
+  }
   useEffect(() => {
-    const paramCat = searchParams.get("categoria");
-    if (paramCat) {
-      setCategory(paramCat);
-    } else {
-      setCategory("Todos");
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      getAllEvents().catch(() => []),
-      getCategories().catch(() => [])
-    ])
-      .then(([eventsData, categoriesData]) => {
-        setEvents(eventsData || []);
-        if (categoriesData && categoriesData.length > 0) {
-          setCategories(["Todos", ...categoriesData.map((item) => item.nombre)]);
+    let active = true;
+    Promise.all([getAllEvents(), getCategories()])
+      .then(([events, categories]) => {
+        if (active) {
+          setEvents(events);
+          setCategories(categories);
         }
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (active) setError(err.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-
-  const filteredEvents = useMemo(() => {
-    let result = [...events];
-
-    if (searchText.trim()) {
-      const term = searchText.toLowerCase();
-      result = result.filter(
-        (event) =>
-          (event.nombre && event.nombre.toLowerCase().includes(term)) ||
-          (event.artista && event.artista.toLowerCase().includes(term)) ||
-          (event.ciudad && event.ciudad.toLowerCase().includes(term)) ||
-          (event.recinto && event.recinto.toLowerCase().includes(term))
-      );
-    }
-
-    if (category !== "Todos") {
-      result = result.filter((event) => event.categoria === category);
-    }
-
-    result = result.filter((event) => event.precioMinimo <= maxPrice);
-
-    if (sortBy === "precio") {
-      result.sort((a, b) => a.precioMinimo - b.precioMinimo);
-    } else if (sortBy === "popularidad") {
-      result.sort((a, b) => b.disponibilidad - a.disponibilidad);
-    } else {
-      result.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-    }
-
-    return result;
-  }, [category, events, maxPrice, searchText, sortBy]);
-
-  function handleReset() {
-    setSearchText("");
-    setCategory("Todos");
-    setMaxPrice(50000);
-    setSortBy("fecha");
-  }
-
+  const filtered = useMemo(() => {
+    const matches = events.filter(
+      (event) =>
+        normalizeText(
+          `${event.nombre} ${event.recinto} ${event.ciudad}`,
+        ).includes(normalizeText(search)) &&
+        (!category || event.categoria === category) &&
+        (!price || event.precioMinimo <= Number(price)) &&
+        isInDateRange(event.fecha, from, to),
+    );
+    return sort === "precio"
+      ? [...matches].sort((a, b) => a.precioMinimo - b.precioMinimo)
+      : sortByDate(matches, (event) => `${event.fecha}T${event.hora}`, sort);
+  }, [events, search, category, price, from, to, sort]);
   return (
-    <section className="container page-block">
-      <SectionTitle
-        eyebrow="Búsqueda de eventos"
-        title="Encontrá tu próximo espectáculo"
-        text="Filtrá la cartelera oficial por nombre, ciudad, categoría o rango de precios."
-      />
-
+    <section className="container page-block search-page">
+      <div className="catalog-heading">
+        <div>
+          <p className="section-eyebrow">Argentina / Eventos</p>
+          <h1>Buscá tu próxima salida.</h1>
+        </div>
+      </div>
       <div className="search-layout">
         <aside className="search-panel">
-          <h2 style={{ fontSize: "1.1rem", marginBottom: 16 }}>Filtros</h2>
-
+          <div className="panel-heading">
+            <h2>Encontrar eventos</h2>
+            <button
+              className="text-link"
+              type="button"
+              onClick={() => setParams({})}
+            >
+              Limpiar
+            </button>
+          </div>
           <label>
-            Buscar por espectáculo, sala o artista
+            Evento, artista o lugar
             <input
-              type="text"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder="Ej: Rock, Teatro, Vorterix..."
+              type="search"
+              placeholder="¿Qué querés ver?"
+              value={search}
+              onChange={(e) => update("q", e.target.value)}
             />
           </label>
-
           <label>
             Categoría
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
-              {categories.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+            <select
+              value={category}
+              onChange={(e) => update("categoria", e.target.value)}
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map((item) => (
+                <option key={item.id} value={item.nombre}>
+                  {item.nombre}
                 </option>
               ))}
             </select>
           </label>
-
+          <div className="date-filter-pair">
+            <label>
+              Desde
+              <input
+                type="date"
+                value={from}
+                max={to || undefined}
+                onChange={(e) => update("desde", e.target.value)}
+              />
+            </label>
+            <label>
+              Hasta
+              <input
+                type="date"
+                value={to}
+                min={from || undefined}
+                onChange={(e) => update("hasta", e.target.value)}
+              />
+            </label>
+          </div>
           <label>
-            Ordenar por
-            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-              <option value="fecha">Fecha (más cercanos)</option>
-              <option value="precio">Precio (menor a mayor)</option>
-              <option value="popularidad">Disponibilidad (más cupos)</option>
-            </select>
-          </label>
-
-          <label>
-            Precio máximo: ${maxPrice.toLocaleString("es-AR")}
+            Precio máximo (ARS)
             <input
-              type="range"
-              min="1000"
-              max="50000"
-              step="1000"
-              value={maxPrice}
-              onChange={(event) => setMaxPrice(Number(event.target.value))}
+              type="number"
+              min="0"
+              step="500"
+              value={price}
+              placeholder="Sin límite"
+              onChange={(e) => update("precio", e.target.value)}
             />
           </label>
-
-          <button
-            type="button"
-            className="text-link"
-            onClick={handleReset}
-            style={{ width: "100%", textAlign: "center", marginTop: 12 }}
-          >
-            Limpiar filtros
-          </button>
-        </aside>
-
-        <div className="search-results">
-          <p className="results-count">
-            {loading ? "Buscando eventos..." : `${filteredEvents.length} resultados encontrados`}
+          <p className="quiet-note">
+            Solo eventos publicados con entradas disponibles.
           </p>
-
+        </aside>
+        <div className="search-results">
+          <div className="results-toolbar">
+            <p className="results-count" aria-live="polite">
+              {loading
+                ? "Cargando cartelera…"
+                : `${filtered.length} eventos para vos`}
+            </p>
+            <label className="inline-sort">
+              Ordenar
+              <select
+                value={sort}
+                onChange={(e) => update("orden", e.target.value)}
+              >
+                <option value="asc">Fecha más cercana</option>
+                <option value="desc">Fecha más lejana</option>
+                <option value="precio">Menor precio</option>
+              </select>
+            </label>
+          </div>
+          {error ? (
+            <div className="auth-error" role="alert">
+              {error}
+            </div>
+          ) : null}
           {loading ? (
             <div className="event-grid">
-              <div className="skeleton skeleton-card" />
-              <div className="skeleton skeleton-card" />
-              <div className="skeleton skeleton-card" />
+              {[1, 2, 3].map((id) => (
+                <div key={id} className="skeleton skeleton-card" />
+              ))}
             </div>
           ) : (
-            <EventGrid events={filteredEvents} />
+            <EventGrid events={filtered} />
           )}
         </div>
       </div>
     </section>
   );
 }
-
 export default SearchPage;
-

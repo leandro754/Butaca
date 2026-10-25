@@ -90,7 +90,7 @@ pnpm run build
 
 ## Dependencias
 
-- Backend: Java 17, Spring Boot, Spring Web MVC, Spring Data JPA, Validation, PostgreSQL, BCrypt, Lombok.
+- Backend: Java 17, Spring Boot, Spring Web MVC, Spring Data JPA, Validation, PostgreSQL, BCrypt, Lombok, Spring Mail (SMTP) y ZXing Core (QR de adjuntos).
 - Demo local: perfil `demo` con H2 en memoria y datos semilla de `DataLoader`.
 - Frontend: React, Vite, React Router DOM, gestionados con `pnpm`.
 - No agregar dependencias para resolver problemas que pueden resolverse con APIs nativas o codigo existente.

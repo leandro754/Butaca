@@ -1,187 +1,144 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { formatDate } from "../../utils/formatters";
 import QRCodeImage, { downloadTicketAsImage } from "../ui/QRCodeImage";
+import StatusBadge from "../ui/StatusBadge";
 
 function TicketPass({ ticket, eventTitle, venue, date, time, buyerName }) {
   const [showModal, setShowModal] = useState(false);
-  const qrData = ticket.codigo_unico_entrada || ticket.codigoUnicoEntrada || ticket.id || "BUTACA-TICKET";
-  const titularNominal = ticket.nombre_asistente || ticket.nombreAsistente || buyerName || "Titular Nominal";
-  const dniNominal = ticket.dni_asistente || ticket.dniAsistente || "";
-
-  function handleDownload() {
+  const dialog = useRef(null);
+  const headingId = useId();
+  const qrData = ticket.codigo_unico_entrada || ticket.codigoUnicoEntrada;
+  const titular =
+    ticket.nombre_asistente || ticket.nombreAsistente || buyerName || "Titular";
+  const dni = ticket.dni_asistente || ticket.dniAsistente || "";
+  const status = ticket.estado_entrada || "CONFIRMADA";
+  const usable = status === "CONFIRMADA";
+  useEffect(() => {
+    if (showModal) dialog.current?.showModal();
+    else dialog.current?.close();
+  }, [showModal]);
+  function download() {
     downloadTicketAsImage({
       ticket,
       eventTitle,
       venue,
-      date: date ? formatDate(date) : "",
+      date: date ? formatDate(date) : "Fecha a confirmar",
       time,
-      buyerName: dniNominal ? `${titularNominal} (DNI ${dniNominal})` : titularNominal
+      buyerName: dni ? `${titular} (DNI ${dni})` : titular,
     });
   }
-
   return (
     <>
-      <div className="ticket-pass">
+      <div className={`ticket-pass ${usable ? "" : "ticket-inactive"}`}>
         <div className="ticket-pass-main">
           <div className="ticket-pass-header">
-            <h4 className="ticket-pass-title" style={{ fontSize: "1.12rem", fontWeight: 700 }}>
+            <h3 className="ticket-pass-title">
               {eventTitle || "Entrada Butaca"}
-            </h4>
+            </h3>
+            <StatusBadge status={status} />
           </div>
-
-          <div className="ticket-pass-meta" style={{ marginTop: 4 }}>
-            {date ? <span>{formatDate(date)} {time ? `· ${time} hs` : ""}</span> : null}
+          <div className="ticket-pass-meta">
+            {date ? (
+              <span>
+                {formatDate(date)} {time ? `· ${time} h` : ""}
+              </span>
+            ) : (
+              <span>Fecha del evento a confirmar</span>
+            )}
             {venue ? <span>· {venue}</span> : null}
           </div>
-
-          <div style={{ marginTop: 6, fontSize: "0.84rem", color: "var(--text-2)" }}>
-            Asistente nominal: <strong>{titularNominal}</strong>
-            {dniNominal ? <> · DNI: <strong>{dniNominal}</strong></> : null}
-          </div>
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
-            <button
-              type="button"
-              className="btn-copy"
-              style={{
-                background: "linear-gradient(135deg, var(--primary), var(--primary-2))",
-                color: "#ffffff",
-                borderColor: "transparent",
-                fontWeight: 600,
-                padding: "8px 16px",
-                fontSize: "0.85rem"
-              }}
-              onClick={handleDownload}
-              title="Descargar comprobante en imagen"
-            >
-              Descargar Entrada
-            </button>
-
+          <p className="ticket-holder">
+            {titular}
+            {dni ? <span> · DNI {dni}</span> : null}
+          </p>
+          <div className="row-actions">
             <button
               type="button"
               className="btn-copy"
               onClick={() => setShowModal(true)}
-              style={{
-                padding: "8px 16px",
-                fontSize: "0.85rem",
-                color: "var(--text)"
-              }}
-              title="Visualizar código QR"
+              disabled={!qrData}
             >
-              Visualizar Entrada
+              Ver entrada
             </button>
-          </div>
-        </div>
-
-        <div
-          className="ticket-pass-side"
-          style={{ cursor: "pointer" }}
-          onClick={() => setShowModal(true)}
-          title="Clic para visualizar"
-        >
-          <QRCodeImage value={qrData} size={90} />
-        </div>
-      </div>
-
-      {/* Modal de visualización */}
-      {showModal ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.8)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: 20
-          }}
-          onClick={() => setShowModal(false)}
-        >
-          <div
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--r-lg)",
-              padding: "36px 32px",
-              maxWidth: 420,
-              width: "100%",
-              textAlign: "center",
-              position: "relative",
-              boxShadow: "0 24px 48px rgba(0,0,0,0.6)"
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
             <button
               type="button"
-              onClick={() => setShowModal(false)}
-              style={{
-                position: "absolute",
-                top: 14,
-                right: 14,
-                background: "rgba(255,255,255,0.06)",
-                border: "none",
-                color: "var(--text)",
-                fontSize: "1.1rem",
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-              aria-label="Cerrar"
+              className="btn-copy"
+              onClick={download}
+              disabled={!qrData || !usable}
             >
-              ✕
+              Descargar entrada ↓
             </button>
-
-            <h3 style={{ margin: "0 0 8px", fontSize: "1.25rem", color: "var(--text)", fontWeight: 700 }}>
-              {eventTitle || "Entrada Oficial Nominal"}
-            </h3>
-
-            <p style={{ margin: "0 0 8px", color: "var(--text-2)", fontSize: "0.9rem" }}>
-              {date ? formatDate(date) : ""} {time ? `· ${time} hs` : ""}
-            </p>
-
-            <p style={{ margin: "0 0 20px", color: "var(--text)", fontSize: "0.9rem" }}>
-              Titular: <strong>{titularNominal}</strong> {dniNominal ? `(DNI ${dniNominal})` : ""}
-            </p>
-
-            <div style={{ display: "inline-block", margin: "0 auto 24px" }}>
-              <QRCodeImage value={qrData} size={220} />
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-              <button
-                type="button"
-                className="btn-copy"
-                style={{
-                  background: "linear-gradient(135deg, var(--primary), var(--primary-2))",
-                  color: "#ffffff",
-                  borderColor: "transparent",
-                  fontWeight: 600,
-                  padding: "9px 20px"
-                }}
-                onClick={handleDownload}
-              >
-                Descargar
-              </button>
-              <button
-                type="button"
-                className="btn-copy"
-                style={{ padding: "9px 20px", color: "var(--text)" }}
-                onClick={() => setShowModal(false)}
-              >
-                Cerrar
-              </button>
-            </div>
           </div>
+          {!usable ? (
+            <p className="quiet-note">
+              {status === "USADA"
+                ? "Esta entrada ya se utilizó."
+                : "Esta entrada fue anulada y no habilita el ingreso."}
+            </p>
+          ) : null}
         </div>
-      ) : null}
+        <button
+          className="ticket-pass-side"
+          type="button"
+          onClick={() => setShowModal(true)}
+          disabled={!qrData}
+          aria-label={`Ampliar entrada de ${titular}`}
+        >
+          {qrData && usable ? (
+            <QRCodeImage value={qrData} size={90} />
+          ) : (
+            <StatusBadge status={status} />
+          )}
+        </button>
+      </div>
+      <dialog
+        className="ticket-dialog"
+        ref={dialog}
+        onCancel={() => setShowModal(false)}
+        onClose={() => setShowModal(false)}
+        aria-labelledby={headingId}
+      >
+        <button
+          type="button"
+          className="dialog-close"
+          aria-label="Cerrar entrada"
+          onClick={() => setShowModal(false)}
+        >
+          ×
+        </button>
+        <p className="section-eyebrow">Butaca / Tu entrada</p>
+        <h2 id={headingId}>{eventTitle}</h2>
+        <p>
+          {date ? formatDate(date) : "Fecha a confirmar"}{" "}
+          {time ? `· ${time} h` : ""}
+        </p>
+        <p>{venue}</p>
+        <StatusBadge status={status} />
+        <div className="dialog-qr">
+          {qrData && usable ? (
+            <QRCodeImage value={qrData} size={220} />
+          ) : (
+            <p>Esta entrada no habilita el ingreso.</p>
+          )}
+        </div>
+        <strong>{titular}</strong>
+        <p>DNI {dni || "Sin informar"}</p>
+        {usable ? (
+          <>
+            <p className="quiet-note">
+              Presentá este QR junto con tu DNI físico en puerta.
+            </p>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={download}
+            >
+              Descargar entrada ↓
+            </button>
+          </>
+        ) : null}
+      </dialog>
     </>
   );
 }
-
 export default TicketPass;

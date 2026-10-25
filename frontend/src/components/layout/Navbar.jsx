@@ -1,247 +1,200 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getCategories } from "../../services/eventService";
+import ButacaLogo from "../brand/ButacaLogo";
 
-const defaultCategories = [
-  { nombre: "Conciertos", icon: "🎸", desc: "Recitales y música en vivo" },
-  { nombre: "Teatro", icon: "🎭", desc: "Obras dramáticas y comedia" },
-  { nombre: "Deportes", icon: "🏀", desc: "Torneos y finales en vivo" },
-  { nombre: "Festivales", icon: "🎪", desc: "Experiencias y aire libre" }
-];
-
-function getCategoryIcon(nombre = "") {
-  const key = nombre.toLowerCase();
-  if (key.includes("concierto") || key.includes("musica")) return "🎸";
-  if (key.includes("teatro") || key.includes("comedia")) return "🎭";
-  if (key.includes("deporte") || key.includes("basquet")) return "🏀";
-  if (key.includes("festival") || key.includes("expo")) return "🎪";
-  return "🎟️";
-}
-
-function Navbar({ currentUser, onLogout }) {
+function Navbar({
+  currentUser,
+  onLogout,
+  logoRef,
+  headerRef,
+  theme,
+  themeChanging,
+  onToggleTheme,
+}) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [catOpen, setCatOpen] = useState(false);
-  const [categories, setCategories] = useState(defaultCategories);
+  const [categories, setCategories] = useState([]);
+  const [search, setSearch] = useState("");
   const dropdownRef = useRef(null);
-
   useEffect(() => {
     getCategories()
-      .then((data) => {
-        if (data && data.length > 0) {
-          setCategories(
-            data.map((c) => ({
-              nombre: c.nombre,
-              icon: getCategoryIcon(c.nombre),
-              desc: c.descripcion || "Espectáculos disponibles"
-            }))
-          );
-        }
-      })
+      .then(setCategories)
       .catch(() => {});
   }, []);
-
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setCatOpen(false);
-      }
+    function outside(event) {
+      if (!dropdownRef.current?.contains(event.target)) setCatOpen(false);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    function escape(event) {
+      if (event.key === "Escape") setCatOpen(false);
+    }
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", outside);
+      document.removeEventListener("keydown", escape);
+    };
   }, []);
-
-  const initial = currentUser ? currentUser.nombre?.[0]?.toUpperCase() : null;
-  const role = currentUser?.rol || "CLIENTE";
-  const roleLabel = role === "ADMIN" ? "ADMIN" : role === "ORGANIZADOR" ? "ORGANIZADOR" : "CLIENTE";
-  const dashboardLabel = role === "ADMIN" ? "Panel Admin" : role === "ORGANIZADOR" ? "Panel Productora" : "Mis Entradas";
-  const roleBadgeColor =
-    role === "ADMIN" ? "badge-danger" : role === "ORGANIZADOR" ? "badge-info" : "badge-success";
-
-  function handleSelectCategory(catName) {
+  const role = currentUser?.rol;
+  const dashboardLabel =
+    role === "ADMIN"
+      ? "Administración"
+      : role === "ORGANIZADOR"
+        ? "Mis eventos"
+        : "Mis entradas";
+  function selectCategory(name) {
     setCatOpen(false);
-    if (!catName || catName === "Todos") {
-      navigate("/buscar");
-    } else {
-      navigate(`/buscar?categoria=${encodeURIComponent(catName)}`);
-    }
+    navigate(
+      name ? `/buscar?categoria=${encodeURIComponent(name)}` : "/buscar",
+    );
   }
-
   return (
-    <header className="navbar">
+    <header className="navbar" ref={headerRef}>
       <div className="container navbar-inner">
-        <Link to="/" className="brand">
-          <span className="brand-mark">B</span>
-          <span>
-            <strong>Butaca</strong>
-            <small>Ticketing & Espectáculos</small>
+        <Link to="/" className="brand" aria-label="Butaca, inicio">
+          <span className="brand-motion" ref={logoRef}>
+            <ButacaLogo decorative />
           </span>
         </Link>
-
-        <nav className="nav-links" style={{ alignItems: "center" }}>
-          <NavLink to="/" end>Inicio</NavLink>
-          <NavLink to="/buscar">Cartelera</NavLink>
-
-          <div ref={dropdownRef} style={{ position: "relative" }}>
+        <form
+          className="nav-search"
+          data-intro-reveal
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            navigate(`/buscar?q=${encodeURIComponent(search.trim())}`);
+          }}
+        >
+          <span aria-hidden="true">⌕</span>
+          <input
+            aria-label="Buscar eventos"
+            type="search"
+            placeholder="Evento, artista o lugar…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button type="submit" aria-label="Buscar en la cartelera">
+            ↗
+          </button>
+        </form>
+        <nav
+          className="nav-links"
+          aria-label="Navegación principal"
+          data-intro-reveal
+        >
+          <NavLink
+            to="/buscar"
+            className={({ isActive }) =>
+              isActive || pathname === "/" ? "active" : undefined
+            }
+          >
+            Cartelera
+          </NavLink>
+          <div className="category-menu" ref={dropdownRef}>
             <button
+              className="text-link"
               type="button"
-              onClick={() => setCatOpen((prev) => !prev)}
-              style={{
-                background: catOpen ? "rgba(255,255,255,0.08)" : "transparent",
-                border: "1px solid transparent",
-                borderColor: catOpen ? "var(--border)" : "transparent",
-                color: "var(--text-2)",
-                fontSize: "0.92rem",
-                fontWeight: 500,
-                padding: "6px 12px",
-                borderRadius: "999px",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                transition: "all 0.2s"
-              }}
+              aria-expanded={catOpen}
+              aria-controls="nav-categories"
+              onClick={() => setCatOpen(!catOpen)}
             >
-              Categorías
-              <span style={{ fontSize: "0.7rem", transform: catOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                ▼
-              </span>
+              Categorías <span aria-hidden="true">⌄</span>
             </button>
-
             {catOpen ? (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 10px)",
-                  left: 0,
-                  minWidth: 270,
-                  background: "rgba(15, 20, 32, 0.98)",
-                  backdropFilter: "blur(16px)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--r-md)",
-                  padding: "10px",
-                  boxShadow: "0 20px 44px rgba(0, 0, 0, 0.65)",
-                  zIndex: 999,
-                  display: "grid",
-                  gap: 4
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleSelectCategory("Todos")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "9px 12px",
-                    borderRadius: "var(--r-sm)",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "none",
-                    color: "var(--text)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    width: "100%"
-                  }}
-                >
-                  <span style={{ fontSize: "1.1rem" }}>✨</span>
-                  <div>
-                    <strong style={{ display: "block", fontSize: "0.86rem" }}>Todas las categorías</strong>
-                    <span style={{ fontSize: "0.74rem", color: "var(--text-3)" }}>Ver cartelera completa</span>
-                  </div>
+              <div className="category-dropdown" id="nav-categories">
+                <button type="button" onClick={() => selectCategory("")}>
+                  Toda la cartelera <span>↗</span>
                 </button>
-
-                {categories.map((cat) => (
+                {categories.map((category) => (
                   <button
-                    key={cat.nombre}
                     type="button"
-                    onClick={() => handleSelectCategory(cat.nombre)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "9px 12px",
-                      borderRadius: "var(--r-sm)",
-                      background: "transparent",
-                      border: "none",
-                      color: "var(--text)",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      width: "100%"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                    }}
+                    key={category.id}
+                    onClick={() => selectCategory(category.nombre)}
                   >
-                    <span style={{ fontSize: "1.15rem" }}>{cat.icon}</span>
-                    <div>
-                      <strong style={{ display: "block", fontSize: "0.86rem" }}>{cat.nombre}</strong>
-                      <span style={{ fontSize: "0.74rem", color: "var(--text-3)" }}>{cat.desc}</span>
-                    </div>
+                    {category.nombre}
+                    <span>↗</span>
                   </button>
                 ))}
               </div>
             ) : null}
           </div>
         </nav>
-
-        <div className="navbar-actions">
+        <div className="navbar-actions" data-intro-reveal>
+          <button
+            type="button"
+            className="theme-toggle"
+            aria-label={
+              theme === "dark"
+                ? "Cambiar a modo claro"
+                : "Cambiar a modo oscuro"
+            }
+            title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+            onClick={onToggleTheme}
+            disabled={themeChanging}
+            aria-pressed={theme === "dark"}
+          >
+            {theme === "dark" ? (
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                aria-hidden="true"
+              >
+                <path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z" />
+              </svg>
+            )}
+          </button>
           {currentUser ? (
             <>
-              <Link to="/dashboard" className="text-link" style={{ fontWeight: 700 }}>
-                {dashboardLabel}
-              </Link>
-              <div className="account-chip">
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, var(--primary), var(--primary-2))",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 800,
-                    fontSize: "0.8rem",
-                    color: "#fff",
-                    flexShrink: 0
-                  }}
-                >
-                  {initial}
-                </div>
-                <div>
+              <Link className="account-link" to="/dashboard">
+                <span className="user-avatar" aria-hidden="true">
+                  {currentUser.nombre?.[0]}
+                </span>
+                <span>
                   <strong>{currentUser.nombre}</strong>
-                  <span className={`badge-status ${roleBadgeColor}`} style={{ fontSize: "0.62rem", padding: "1px 6px" }}>
-                    {roleLabel}
-                  </span>
-                </div>
-                <button
-                  className="text-link"
-                  type="button"
-                  onClick={onLogout}
-                  style={{ color: "var(--text-3)", fontSize: "0.8rem", padding: "4px 8px" }}
-                  title="Cerrar sesión"
-                >
-                  Salir
-                </button>
-              </div>
+                  <small>{dashboardLabel}</small>
+                </span>
+              </Link>
+              <button
+                type="button"
+                className="text-link logout-link"
+                title="Cerrar sesión"
+                onClick={onLogout}
+              >
+                Salir
+              </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="text-link">Ingresar</Link>
-              <Link to="/registro" className="text-link">Registrarse</Link>
+              <Link to="/login" className="text-link">
+                Ingresar
+              </Link>
+              <Link to="/registro" className="pill-link">
+                Crear cuenta
+              </Link>
             </>
           )}
-          <Link to="/buscar" className="pill-link">
-            Explorar →
-          </Link>
         </div>
       </div>
     </header>
   );
 }
-
 export default Navbar;
-
-

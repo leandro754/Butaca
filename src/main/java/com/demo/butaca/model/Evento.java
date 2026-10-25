@@ -110,8 +110,8 @@ public class Evento extends AuditableEntity {
             return tiposEntrada.stream()
                     .filter(t -> Boolean.TRUE.equals(t.getActivoTipoEntrada()))
                     .map(TipoEntrada::getPrecioTipoEntrada)
-                    .findFirst()
-                    .orElse(tiposEntrada.get(0).getPrecioTipoEntrada());
+                    .min(BigDecimal::compareTo)
+                    .orElse(BigDecimal.ZERO);
         }
         return precioEntradaEvento != null ? precioEntradaEvento : BigDecimal.ZERO;
     }
@@ -140,7 +140,8 @@ public class Evento extends AuditableEntity {
 
     public TipoEntrada obtenerTipoEntradaPrincipal() {
         if (tiposEntrada != null && !tiposEntrada.isEmpty()) {
-            return tiposEntrada.get(0);
+            return tiposEntrada.stream().filter(tipo -> Boolean.TRUE.equals(tipo.getActivoTipoEntrada()))
+                    .min(java.util.Comparator.comparing(TipoEntrada::getPrecioTipoEntrada)).orElse(null);
         }
         return null;
     }

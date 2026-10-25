@@ -5,7 +5,10 @@ function CategoryTabs({ categories, activeCategory, onChange }) {
         <button
           key={category}
           type="button"
-          className={activeCategory === category ? "category-tab active" : "category-tab"}
+          aria-pressed={activeCategory === category}
+          className={
+            activeCategory === category ? "category-tab active" : "category-tab"
+          }
           onClick={() => onChange(category)}
         >
           {category}

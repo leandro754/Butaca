@@ -42,15 +42,22 @@ import com.demo.butaca.repository.VerificacionIdentidadRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.math.BigDecimal;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 @Configuration
 public class DataLoader {
@@ -69,7 +76,8 @@ public class DataLoader {
                                    VerificacionIdentidadRepository verificacionRepository,
                                    PagoRepository pagoRepository,
                                    ComprobanteRepository comprobanteRepository,
-                                   AuditoriaSeguridadRepository auditoriaRepository) {
+                                   AuditoriaSeguridadRepository auditoriaRepository,
+                                   Environment environment) {
         return args -> {
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
@@ -172,7 +180,7 @@ public class DataLoader {
             if (notificacionRepository.count() == 0 && !eventos.isEmpty()) {
                 LocalDateTime ahora = LocalDateTime.now();
                 crearNotificacionDemo(notificacionRepository, cliente, eventos.get(0),
-                        "Compra confirmada y comprobante BUT-2026-000001 enviado para Concierto de Rock Alternativo.", "COMPROBANTE", true, ahora.minusDays(3));
+                        "Compra confirmada para Concierto de Rock Alternativo. Tus entradas están disponibles en tu cuenta.", "INFO", true, ahora.minusDays(3));
                 crearNotificacionDemo(notificacionRepository, cliente, eventos.get(1),
                         "Tu entrada nominal (DNI 42850123) para Festival de Jazz al Aire Libre ya esta disponible.", "ENTRADA", false, ahora.minusDays(1));
                 crearNotificacionDemo(notificacionRepository, ana, eventos.get(2),
@@ -180,7 +188,41 @@ public class DataLoader {
                 crearNotificacionDemo(notificacionRepository, admin, null,
                         "Demo inicializada con verificación KYC, pasarela PCI-DSS, comprobantes SHA-256 y tracking de seguridad.", "SISTEMA", false, ahora.minusMinutes(30));
             }
+            if (environment.matchesProfiles("demo")) {
+                ampliarCarteleraDemo(eventoRepository, categoriaRepository, ubicacionRepository, org);
+                for (Comprobante comprobante : comprobanteRepository.findByEstadoEnvioComprobante(EstadoEnvio.PENDIENTE)) {
+                    if (comprobante.getEstadoEnvioComprobante() == EstadoEnvio.PENDIENTE
+                            && !notificacionRepository.existsByCompraIdAndTipo(comprobante.getPago().getCompra().getId(), "COMPROBANTE")) {
+                        Compra compra = comprobante.getPago().getCompra();
+                        notificacionRepository.save(Notificacion.builder().usuario(compra.getCliente()).compra(compra)
+                                .mensaje("Tus entradas y comprobante " + comprobante.getNumeroComprobante() + " están disponibles.")
+                                .tipo("COMPROBANTE").build());
+                    }
+                }
+            }
         };
+    }
+
+    // Shared fixture with scripts/seed-demo-events.ps1. Existing events are never modified.
+    private void ampliarCarteleraDemo(EventoRepository eventos, CategoriaRepository categorias,
+                                      UbicacionRepository ubicaciones, Usuario organizador) throws java.io.IOException {
+        Set<String> titulos = new HashSet<>();
+        eventos.findAll().forEach(evento -> titulos.add(evento.getTituloEvento()));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new ClassPathResource("demo-events.tsv").getInputStream(), StandardCharsets.UTF_8))) {
+            for (String line : reader.lines().skip(1).filter(value -> !value.isBlank()).toList()) {
+                String[] field = line.split("\t", -1);
+                if (!titulos.add(field[0])) continue;
+                Categoria categoria = asegurarCategoria(categorias, field[1], "Eventos de " + field[1].toLowerCase());
+                Ubicacion ubicacion = ubicaciones.findAll().stream()
+                        .filter(value -> field[2].equals(value.getNombreLugar()))
+                        .findFirst().orElseThrow(() -> new IllegalStateException("Falta ubicación de demo: " + field[2]));
+                crearEventoDemo(eventos, organizador, categoria, ubicacion, field[0], field[8],
+                        LocalDate.now().plusDays(Integer.parseInt(field[3])), LocalTime.parse(field[4]),
+                        new BigDecimal(field[5]), Integer.parseInt(field[6]), EstadoEvento.PUBLICADO,
+                        "https://images.unsplash.com/" + field[7] + "?auto=format&fit=crop&w=1200&q=80");
+            }
+        }
     }
 
     private Rol asegurarRol(RolRepository rolRepository, String nombre) {
@@ -316,7 +358,7 @@ public class DataLoader {
                 .numeroComprobante(numComprobante)
                 .tipoComprobante(TipoComprobante.RECIBO_DIGITAL)
                 .hashCruceSeguridad(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""))
-                .estadoEnvioComprobante(EstadoEnvio.ENVIADO)
+                .estadoEnvioComprobante(EstadoEnvio.PENDIENTE)
                 .fechaEmisionComprobante(fechaCompra)
                 .build());
 
@@ -381,7 +423,6 @@ public class DataLoader {
                 .tipo(tipo)
                 .leida(leida)
                 .fechaCreacion(fecha)
-                .fechaEnvio(fecha)
                 .build();
         notificacionRepository.save(notificacion);
     }

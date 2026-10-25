@@ -68,7 +68,7 @@ public class Notificacion extends AuditableEntity {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_envio_notificacion", nullable = false, length = 20)
-    private EstadoEnvioNotificacion estadoEnvio = EstadoEnvioNotificacion.ENVIADA;
+    private EstadoEnvioNotificacion estadoEnvio = EstadoEnvioNotificacion.PENDIENTE;
 
     @Column(name = "fecha_envio_notificacion")
     private LocalDateTime fechaEnvio;

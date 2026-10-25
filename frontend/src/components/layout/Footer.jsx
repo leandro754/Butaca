@@ -1,45 +1,57 @@
 import { Link } from "react-router-dom";
-
+import ButacaLogo from "../brand/ButacaLogo";
 function Footer() {
   return (
     <footer className="footer" id="ayuda">
       <div className="container footer-grid">
         <div>
-          <h3>Butaca</h3>
+          <Link className="footer-brand" to="/" aria-label="Butaca, inicio">
+            <ButacaLogo decorative />
+          </Link>
           <p>
-            Tu plataforma de entradas digitales para recitales, teatro y eventos en vivo en toda la Argentina.
+            Un lugar para encontrar tu próxima salida.
+            <br />
+            Recitales, teatro, deportes y festivales.
           </p>
         </div>
         <div>
-          <h4>Navegación</h4>
-          <Link to="/">Inicio</Link>
-          <Link to="/buscar">Cartelera de espectáculos</Link>
-          <Link to="/dashboard">Mis entradas</Link>
-        </div>
-        <div>
-          <h4>Sobre nosotros</h4>
-          <a href="#ayuda">Quiénes somos</a>
-          <a href="#ayuda">Términos y condiciones</a>
-          <a href="#ayuda">Política de privacidad</a>
-          <Link
-            to="/registro?modo=organizacion"
-            style={{ color: "var(--text-3)", fontSize: "0.82rem", marginTop: 4 }}
-          >
-            Sumá tu organización
+          <h4>Seguí explorando</h4>
+          <Link to="/buscar">Cartelera</Link>
+          <Link to="/dashboard">Mi cuenta y entradas</Link>
+          <Link to="/registro?modo=organizacion">
+            Quiero organizar un evento ↗
           </Link>
         </div>
-        <div>
-          <h4>Ayuda</h4>
-          <a href="#ayuda">Centro de ayuda</a>
-          <a href="#ayuda">Entradas nominales y acceso</a>
-          <a href="#ayuda">Medios de pago aceptados</a>
-          <a href="#ayuda">Botón de arrepentimiento</a>
+        <div className="footer-help">
+          <h4>Antes de salir</h4>
+          <details>
+            <summary>¿Dónde encuentro mis entradas?</summary>
+            <p>
+              Ingresá a tu cuenta y abrí Mis entradas. Podés ver el QR o
+              descargarlo para llevarlo en tu teléfono.
+            </p>
+          </details>
+          <details>
+            <summary>¿Qué presento en la puerta?</summary>
+            <p>
+              El código QR de tu entrada y el DNI físico de su titular. Cada
+              código permite un solo ingreso.
+            </p>
+          </details>
+          <details>
+            <summary>¿Cómo funciona la compra?</summary>
+            <p>
+              Esta es una demo académica con pagos simulados. El comprobante y
+              las entradas quedan disponibles en tu cuenta.
+            </p>
+          </details>
         </div>
+      </div>
+      <div className="container footer-bottom">
+        <span>Butaca · MLSN Group</span>
+        <span>Proyecto académico / Entradas nominales</span>
       </div>
     </footer>
   );
 }
-
 export default Footer;
-
-

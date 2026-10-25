@@ -6,14 +6,22 @@ import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 @Data
 public class EventoRequestDTO {
+    private Long version;
+
+    @Valid @Size(min = 1, max = 20)
+    @JsonProperty("tipos_entrada")
+    private List<TipoEntradaDTO> tiposEntrada;
     @NotBlank
     @JsonProperty("titulo_evento")
     private String tituloEvento;

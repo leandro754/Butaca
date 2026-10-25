@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -66,5 +67,14 @@ public class EventoResponseDTO {
     @JsonProperty("organizador_id_evento")
     private Long organizadorIdEvento;
 
-    private Integer version;
+    private Long version;
+
+    @JsonProperty("tipos_entrada")
+    private List<TipoEntradaDTO> tiposEntrada;
+    @JsonProperty("entradas_vendidas")
+    private Integer entradasVendidas;
+    @JsonProperty("total_vendido")
+    private BigDecimal totalVendido;
+    @JsonProperty("porcentaje_ocupacion")
+    private Integer porcentajeOcupacion;
 }

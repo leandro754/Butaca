@@ -4,6 +4,7 @@ import com.demo.butaca.dto.AsistenteNominalDTO;
 import com.demo.butaca.dto.CompraRequestDTO;
 import com.demo.butaca.dto.CompraResponseDTO;
 import com.demo.butaca.dto.EventoResponseDTO;
+import com.demo.butaca.dto.CancelarEventoRequest;
 import com.demo.butaca.dto.RegistroUsuarioRequest;
 import com.demo.butaca.dto.VerificacionIdentidadDTO;
 import com.demo.butaca.model.Usuario;
@@ -22,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,9 +35,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = "butaca.mail.enabled=false")
 @ActiveProfiles("demo")
 class ButacaApplicationTests {
+
+    @Autowired
+    @Qualifier("initDatabase")
+    private CommandLineRunner demoLoader;
 
     @Autowired
     private EventoService eventoService;
@@ -71,6 +78,17 @@ class ButacaApplicationTests {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void carteleraDemoVariadaNoDuplicaEventosAlRepetirSemilla() throws Exception {
+        List<EventoResponseDTO> antes = eventoService.listarEventosPublicados();
+        assertTrue(antes.size() >= 18);
+        assertTrue(antes.stream().map(EventoResponseDTO::getCategoriaNombre).distinct().count() >= 6);
+        demoLoader.run();
+        List<EventoResponseDTO> despues = eventoService.listarEventosPublicados();
+        assertEquals(antes.size(), despues.size());
+        assertEquals(despues.size(), despues.stream().map(EventoResponseDTO::getTituloEvento).distinct().count());
     }
 
     @Test
@@ -116,7 +134,7 @@ class ButacaApplicationTests {
         assertEquals("APROBADO", compra.getPago().getEstadoPago());
         assertEquals("5432", compra.getPago().getUltimosCuatroDigitos());
         assertNotNull(compra.getComprobante());
-        assertEquals("ENVIADO", compra.getComprobante().getEstadoEnvioComprobante());
+        assertEquals("PENDIENTE", compra.getComprobante().getEstadoEnvioComprobante());
         assertEquals(64, compra.getComprobante().getHashCruceSeguridad().length());
         assertTrue(compra.getEntradas().stream().allMatch(entrada -> entrada.getCodigoUnicoEntrada() != null));
         assertTrue(compra.getEntradas().stream()
@@ -174,7 +192,12 @@ class ButacaApplicationTests {
         compraReq.setCantidad(1);
         compraService.comprarEntrada(compraReq);
 
-        eventoService.cancelarEvento(aCancelar.getIdEvento());
+        EventoResponseDTO actual = eventoService.obtenerEvento(aCancelar.getIdEvento());
+        CancelarEventoRequest cancelacion = new CancelarEventoRequest();
+        cancelacion.setConfirmarReembolsos(true);
+        cancelacion.setTituloConfirmacion(actual.getTituloEvento());
+        cancelacion.setVersion(actual.getVersion());
+        eventoService.cancelarEvento(aCancelar.getIdEvento(), cancelacion);
         assertFalse(reembolsoRepository.findAll().isEmpty());
     }
 }

@@ -144,7 +144,6 @@ public class CompraService {
         if (evento.getCuposTotalesEvento() - ocupadas < cantidad) {
             throw new IllegalStateException("Cupos insuficientes");
         }
-        evento.setVersion((evento.getVersion() == null ? 0 : evento.getVersion()) + 1);
 
         LocalDateTime fechaCompra = LocalDateTime.now();
 
@@ -156,7 +155,12 @@ public class CompraService {
                 .build();
         compra = compraRepository.save(compra);
 
-        BigDecimal precioUnitario = evento.getPrecioEntradaEvento();
+        TipoEntrada tipoEntrada = request.getTipoEntradaId() == null ? evento.obtenerTipoEntradaPrincipal()
+                : evento.getTiposEntrada().stream()
+                .filter(tipo -> request.getTipoEntradaId().equals(tipo.getIdTipoEntrada()) && Boolean.TRUE.equals(tipo.getActivoTipoEntrada()))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("El tipo de entrada no está disponible para este evento"));
+        if (tipoEntrada == null) throw new IllegalStateException("El evento no tiene entradas activas");
+        BigDecimal precioUnitario = tipoEntrada.getPrecioTipoEntrada();
         BigDecimal montoTotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
 
         // 3. Cruce con Pasarela de Pago (tabla pago de DrawDB)
@@ -171,7 +175,7 @@ public class CompraService {
                 .proveedorPago(pasarela.name())
                 .pasarelaPago(pasarela)
                 .medioPago(medio)
-                .montoPago(montoTotal.compareTo(BigDecimal.ZERO) > 0 ? montoTotal : BigDecimal.ONE)
+                .montoPago(montoTotal)
                 .monedaPago("ARS")
                 .estadoPago(EstadoPago.APROBADO)
                 .referenciaExternaPago(refPasarela)
@@ -187,7 +191,6 @@ public class CompraService {
         String dniComprador = cliente.getDniUsuario() != null ? cliente.getDniUsuario() : "40000000";
         String nombreComprador = (cliente.getNombreUsuario() + " " + cliente.getApellidoUsuario()).trim();
         List<AsistenteNominalDTO> asistentesReq = request.getAsistentes() == null ? List.of() : request.getAsistentes();
-        TipoEntrada tipoEntrada = evento.obtenerTipoEntradaPrincipal();
 
         List<Entrada> entradas = new ArrayList<>();
         for (int i = 0; i < cantidad; i++) {
@@ -236,7 +239,7 @@ public class CompraService {
                 .numeroComprobante(numeroComprobante)
                 .tipoComprobante(parsearTipoComprobante(request.getTipoComprobante()))
                 .hashCruceSeguridad(hashCruceSha256)
-                .estadoEnvioComprobante(EstadoEnvio.ENVIADO)
+                .estadoEnvioComprobante(EstadoEnvio.PENDIENTE)
                 .fechaEmisionComprobante(fechaCompra)
                 .build();
         comprobante = comprobanteRepository.save(comprobante);
@@ -321,11 +324,11 @@ public class CompraService {
     private void registrarNotificacionCruceCompra(Compra compra, Evento evento, Pago pago, Comprobante comprobante) {
         notificacionService.crearNotificacion(NotificacionDTO.builder()
                 .usuarioId(compra.getCliente().getIdUsuario())
+                .compraId(compra.getId())
                 .eventoId(evento.getIdEvento())
                 .mensaje("Compra confirmada para " + evento.getTituloEvento()
                         + ". Comprobante " + comprobante.getNumeroComprobante()
-                        + " (Pago " + pago.getReferenciaExternaPago() + ") y entradas nominales enviadas a "
-                        + compra.getCliente().getEmailUsuario())
+                        + ". Tus entradas nominales ya están disponibles. El envío por correo está pendiente.")
                 .tipo("COMPROBANTE")
                 .fechaEnvio(LocalDateTime.now())
                 .build());

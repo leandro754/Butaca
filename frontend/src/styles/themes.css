@@ -1,0 +1,278 @@
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #766d66;
+  border-radius: 50%;
+  color: #f7ebdd;
+  background: transparent;
+  cursor: pointer;
+}
+.theme-toggle:hover {
+  border-color: var(--popcorn);
+  color: var(--popcorn);
+}
+.theme-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+.theme-curtain[data-active="true"] {
+  visibility: visible;
+  pointer-events: auto;
+}
+.theme-curtain-panel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(50% + 5px);
+  background: #790f28 url("/brand/theater-curtain.svg") center / 100% 100%
+    no-repeat;
+  box-shadow:
+    inset -12px 0 26px #21000e88,
+    0 5px 36px #0009;
+  will-change: transform;
+}
+.theme-curtain-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #13000a44,
+    transparent 12%,
+    transparent 85%,
+    #13000a55
+  );
+  pointer-events: none;
+}
+.theme-curtain-left {
+  transform: translateX(-102%);
+  transform-origin: left top;
+}
+.theme-curtain-right {
+  left: auto;
+  right: 0;
+  transform: translateX(102%);
+  transform-origin: right top;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141416;
+  --bg-2: #1b1b1f;
+  --surface: #202024;
+  --surface-hover: #2a272d;
+  --text: #f7ebdd;
+  --text-2: #c6bdc3;
+  --text-3: #b5aab3;
+  --border: #3c353f;
+  --border-hover: #6e5b6a;
+  --primary: #ff8aa1;
+  --primary-2: #ff9db0;
+  --accent: #a8c9aa;
+  --accent-soft: #213128;
+  --muted: #c6bdc3;
+}
+:root[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"] body::before {
+  opacity: 0.04;
+}
+:root[data-theme="dark"] :is(.button-primary, .pill-link) {
+  background: #c90b37;
+  color: #fff;
+}
+:root[data-theme="dark"] :is(.button-primary, .pill-link):hover {
+  background: #a90c30;
+}
+:root[data-theme="dark"]
+  :is(
+    .event-card,
+    .dashboard-panel,
+    .stat-card,
+    .auth-card,
+    .confirmation-card,
+    .event-info-card,
+    .order-summary,
+    .checkout-form,
+    .empty-state,
+    .workspace-panel,
+    .ticket-type-row,
+    .catalog-manager,
+    .technical-detail
+  ) {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+:root[data-theme="dark"]
+  :is(
+    .event-card h3,
+    .event-price strong,
+    .feed-empty h3,
+    .stat-card strong,
+    .dashboard-panel h2,
+    .workspace-page h1,
+    .event-info-card h1,
+    .confirmation-card h1,
+    .order-summary h2,
+    .auth-card h1
+  ) {
+  color: var(--text);
+}
+:root[data-theme="dark"]
+  .app-shell
+  :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  background: #26232b;
+  color: var(--text);
+  border-color: #655365;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] select option {
+  background: #26232b;
+  color: var(--text);
+}
+:root[data-theme="dark"] :is(input, textarea)::placeholder {
+  color: #afa4af;
+}
+:root[data-theme="dark"]
+  :is(
+    .record-filters,
+    .catalog-toolbar,
+    .record-row,
+    .purchase-row,
+    .organizer-event,
+    .user-row,
+    .activity-row,
+    .form-actions-row,
+    .ticket-note
+  ) {
+  border-color: var(--border);
+}
+:root[data-theme="dark"]
+  :is(
+    .category-tab,
+    .inline-sort,
+    .event-card-link,
+    .catalog-heading .text-link,
+    .card-date span,
+    .text-link,
+    .event-settings-nav a
+  ) {
+  color: var(--primary);
+}
+:root[data-theme="dark"] :is(.category-tab:hover, .btn-copy:hover) {
+  background: #382a35;
+}
+:root[data-theme="dark"] .category-tab.active {
+  background: #ac1435;
+  color: white;
+  border-color: #ac1435;
+}
+:root[data-theme="dark"] .feed-periods button {
+  border-color: #655365;
+}
+:root[data-theme="dark"] .feed-periods button[aria-pressed="true"] {
+  background: #f7ebdd;
+  color: #17191b;
+  border-color: #f7ebdd;
+}
+:root[data-theme="dark"] .ticket-note {
+  background: #252028;
+}
+:root[data-theme="dark"] .butaca-logo--onLight .brand-letters {
+  fill: #f7ebdd;
+}
+:root[data-theme="dark"] .butaca-logo--onLight .butaca-tagline {
+  color: #e8dbdf;
+}
+:root[data-theme="dark"] :is(.btn-copy, .danger-action) {
+  background: #28222a;
+  color: var(--text);
+  border-color: #655365;
+}
+:root[data-theme="dark"] .danger-action {
+  color: #ff9eb1;
+}
+:root[data-theme="dark"] .success-notice {
+  background: #203126;
+  color: #b8dfc1;
+  border-color: #456c50;
+}
+:root[data-theme="dark"] .auth-error {
+  background: #3d202c;
+  color: #ffc0cd;
+  border-color: #8f3d55;
+}
+:root[data-theme="dark"] :is(.badge-status, .status-badge) {
+  color: #f7ebdd;
+  border-color: #655365;
+}
+:root[data-theme="dark"]
+  :is(.badge-success, .status-publicado, .status-confirmada, .status-aprobado) {
+  background: #203b2a;
+  color: #b8edc6;
+}
+:root[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #242027 25%, #352b36 50%, #242027 75%);
+  background-size: 200% 100%;
+}
+:root[data-theme="dark"] .navbar :is(.text-link, .account-link, .logout-link) {
+  color: #fff4e4;
+}
+:root[data-theme="dark"] .event-card-link:hover {
+  color: #ffc6d3;
+}
+:root[data-theme="dark"] .footer .text-link {
+  color: #fff4e4;
+}
+@media (max-width: 767px) {
+  .theme-toggle {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+  .navbar-actions {
+    gap: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-curtain {
+    display: none;
+  }
+}
+@media print {
+  :root[data-theme="dark"] {
+    --text: #17191b;
+    --text-2: #62666a;
+    --surface: #fff;
+    --bg: #fff;
+  }
+  .theme-toggle,
+  .theme-curtain {
+    display: none;
+  }
+}
+.intro-overlay[data-appearance="dark"] {
+  background-image: radial-gradient(
+    ellipse at 50% 46%,
+    rgb(113 16 42 / 0.18),
+    transparent 52%
+  );
+}
+.app-shell[data-intro-active="true"] .navbar .brand-letters {
+  fill: #17191b;
+}
+:root[data-theme="dark"]
+  .app-shell[data-intro-active="true"]
+  .navbar
+  .brand-letters {
+  fill: #fff9f0;
+}

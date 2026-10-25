@@ -1,6 +1,8 @@
 # Butaca — Plataforma de Gestión de Eventos y Venta de Entradas Nominales
 
-Sistema web full-stack (**Spring Boot + React + JPA**) para la gestión de espectáculos, verificación de identidad obligatoria (**KYC**), pasarela de pagos bajo normativa **PCI-DSS**, emisión de **entradas nominales con QR + DNI**, cruce transaccional con firma de integridad **SHA-256** y bitácora de **auditoría de seguridad**.
+> Estado de la revisión (24/10/2026): demo académica con API real y modelo de 16 entidades. KYC y pasarela siguen simulados; el correo tiene transporte SMTP real, configurable mediante una cuenta remitente local. La autorización de la API por sesión/rol y la restricción del registro público siguen pendientes; no usar para ventas reales. [Correo real y panel de eventos](docs/correo-real-y-eventos.md).
+
+Sistema web académico (**Spring Boot + React + JPA**) para gestionar espectáculos y ventas simuladas. Modela verificación de identidad, pagos, entradas nominales con QR, comprobantes con hash SHA-256 y trazabilidad de operaciones. Las integraciones y la autorización necesarias para un uso real están detalladas en la revisión.
 
 ---
 
@@ -16,7 +18,7 @@ Sistema web full-stack (**Spring Boot + React + JPA**) para la gestión de espec
 
 ---
 
-## ✅ Correcciones del Profesor Implementadas
+## Funcionalidades de demo y requisitos del proyecto
 
 1. **Verificación de Identidad Obligatoria antes de Comprar (`verificacion_identidad`):**
    - Ningún usuario puede adquirir entradas sin haber validado previamente su identidad (**KYC** mediante validación biométrica/documental simulada con RENAPER).
@@ -38,160 +40,47 @@ Sistema web full-stack (**Spring Boot + React + JPA**) para la gestión de espec
 5. **Trackeo de Datos e Inmutabilidad (`auditoria_seguridad` + `historial_estado_entrada`):**
    - Bitácora doble *append-only*: `historial_estado_entrada` audita cada cambio de estado de cada ticket (`CONFIRMADA`, `USADA`, `ANULADA`), mientras que `auditoria_seguridad` registra logins, verificaciones KYC, compras aprobadas/bloqueadas, cambios de rol y lecturas en puerta con fecha/hora e IP.
 6. **Separación de Vistas y Permisos por Rol (Principio de Mínimo Privilegio):**
-   - **Registro público:** Solo permite crear cuentas con rol `CLIENTE` (e incluye la solicitud *"Sumá tu organización"* en el pie de página para revisión del administrador).
+   - **Registro público (requisito pendiente de protección):** Debe crear únicamente `CLIENTE` y tramitar la habilitación de organizador desde administración. Actualmente el backend acepta el rol del request; ver pendientes de seguridad de la revisión.
    - **Vista Cliente:** Muestra un checkout limpio (validación biométrica RENAPER + tarjeta interactiva) y entradas listas para presentar en puerta, ocultando hashes técnicos internos.
    - **Vista Organizador:** Incluye validador de acceso en puerta (**Escáner QR + verificación de DNI nominal**) y gestión de eventos propios.
    - **Vista Administrador:** Permite gestionar usuarios, promover cuentas a `ORGANIZADOR` y auditar la tabla de cruce técnico de compras (`SHA-256`, tokens de pasarela y bitácora de seguridad).
 
 ---
 
-## 🗄️ Diagrama Entidad-Relación Completo (13 Tablas en 3FN)
+## 🗄️ Modelo vigente: 16 entidades en 3FN
+
+Fuente editable: [DrawDB — butaca-modelado-datos](https://drawdb.leandro754.moe/editor/diagrams/butaca-modelado-datos).
+La revisión del 24/10/2026 verificó presencia y nombres de columnas contra las 16 entidades JPA.
+Los archivos Draw.io/DBML y guías de defensa anteriores son material histórico; no deben usarse como DDL vigente sin contrastarlos con DrawDB.
 
 ```mermaid
 erDiagram
-    ROL ||--o{ USUARIO : "asigna (1:N)"
-    USUARIO ||--o| VERIFICACION_IDENTIDAD : "valida KYC (1:1)"
-    USUARIO ||--o{ AUDITORIA_SEGURIDAD : "es auditado en (1:N)"
-    USUARIO ||--o{ EVENTO : "organiza (1:N)"
-    UBICACION ||--o{ EVENTO : "aloja (1:N)"
-    CATEGORIA ||--o{ EVENTO : "clasifica (1:N)"
-    USUARIO ||--o{ COMPRA : "realiza (1:N)"
-    COMPRA ||--|| PAGO : "procesa en pasarela (1:1)"
-    COMPRA ||--|| COMPROBANTE : "respalda con firma (1:1)"
-    EVENTO ||--o{ ENTRADA : "emite tickets (1:N)"
-    COMPRA ||--o{ ENTRADA : "agrupa tickets nominales (1:N)"
-    ENTRADA ||--o{ HISTORIAL_ESTADO_ENTRADA : "audita estados (1:N)"
-    USUARIO ||--o{ NOTIFICACION : "recibe avisos (1:N)"
-    EVENTO ||--o{ NOTIFICACION : "origina avisos (1:N)"
-
-    ROL {
-        bigint id_rol PK
-        varchar nombre_rol UK "ADMIN | ORGANIZADOR | CLIENTE"
-    }
-
-    USUARIO {
-        bigint id_usuario PK
-        varchar nombre_usuario
-        varchar apellido_usuario
-        varchar email_usuario UK
-        varchar dni_usuario UK
-        varchar password_usuario "Hash BCrypt"
-        varchar telefono_usuario
-        varchar estado_usuario "ACTIVO | INACTIVO | BLOQUEADO"
-        bigint id_rol FK
-    }
-
-    VERIFICACION_IDENTIDAD {
-        bigint id_verificacion PK
-        bigint id_usuario FK, UK "Relacion 1:1 con USUARIO"
-        varchar metodo_verificacion "BIOMETRIA_RENAPER | DOCUMENTO_DNI"
-        varchar estado_verificacion "PENDIENTE | VERIFICADA | RECHAZADA"
-        varchar codigo_validacion_kyc UK
-        varchar observacion_verificacion
-        timestamp fecha_solicitud
-        timestamp fecha_verificacion
-    }
-
-    UBICACION {
-        bigint id_ubicacion PK
-        varchar nombre_ubicacion UK
-        varchar direccion_ubicacion
-        int capacidad_maxima_ubicacion
-        boolean activa_ubicacion
-    }
-
-    CATEGORIA {
-        bigint id_categoria PK
-        varchar nombre_categoria UK
-        varchar descripcion_categoria
-    }
-
-    EVENTO {
-        bigint id_evento PK
-        varchar titulo_evento
-        varchar descripcion_evento
-        timestamp fecha_inicio_evento
-        decimal precio_actual_evento
-        int cupo_total_evento
-        varchar estado_evento "BORRADOR | PUBLICADO | CANCELADO"
-        varchar imagen_url_evento
-        bigint version_evento "Bloqueo Optimista @Version"
-        bigint id_organizador FK
-        bigint id_categoria FK
-        bigint id_ubicacion FK
-    }
-
-    COMPRA {
-        bigint id_compra PK
-        bigint id_cliente FK
-        timestamp fecha_compra
-        varchar estado_compra "PENDIENTE | CONFIRMADA | CANCELADA"
-    }
-
-    PAGO {
-        bigint id_pago PK
-        bigint id_compra FK, UK "Relacion 1:1 con COMPRA"
-        varchar pasarela_pago "MERCADOPAGO | STRIPE | MODO"
-        varchar medio_pago "TARJETA_CREDITO | DEBITO | BILLETERA"
-        varchar estado_pago "APROBADO | RECHAZADO | REEMBOLSADO"
-        varchar referencia_externa_pago UK "Token de Pasarela"
-        varchar ultimos_cuatro_digitos "PCI-DSS (sin CVV ni PAN)"
-        timestamp fecha_pago
-    }
-
-    COMPROBANTE {
-        bigint id_comprobante PK
-        bigint id_compra FK, UK "Relacion 1:1 con COMPRA"
-        varchar numero_comprobante UK "Ej: CMP-20261017-A1B2C3"
-        varchar tipo_comprobante "RECIBO_DIGITAL | FACTURA_B"
-        varchar hash_cruce_seguridad UK "Firma SHA-256 del cruce"
-        varchar estado_envio_entrada "ENVIADO | PENDIENTE | FALLIDO"
-        timestamp fecha_emision_comprobante
-    }
-
-    ENTRADA {
-        bigint id_entrada PK
-        bigint id_evento FK
-        bigint id_compra FK
-        varchar codigo_unico_entrada UK "UUID unico para QR"
-        varchar dni_asistente_entrada "Nominalidad: DNI"
-        varchar nombre_asistente_entrada "Nominalidad: Titular"
-        decimal precio_pagado_entrada "Precio historico congelado"
-        varchar estado_entrada "CONFIRMADA | USADA | ANULADA"
-        timestamp fecha_emision_entrada
-    }
-
-    HISTORIAL_ESTADO_ENTRADA {
-        bigint id_historial_estado_entrada PK
-        bigint id_entrada FK
-        varchar estado_anterior_entrada
-        varchar estado_nuevo_entrada
-        varchar motivo_cambio_entrada
-        timestamp fecha_cambio_entrada
-    }
-
-    NOTIFICACION {
-        bigint id_notificacion PK
-        bigint id_usuario_destino FK
-        bigint id_evento_relacionado FK
-        varchar tipo_notificacion
-        varchar mensaje_notificacion
-        boolean leida_notificacion
-        timestamp fecha_creacion_notificacion
-    }
-
-    AUDITORIA_SEGURIDAD {
-        bigint id_auditoria PK
-        bigint id_usuario FK
-        varchar accion_auditoria "REGISTRO | KYC | CRUCE_COMPRA | VALIDACION_PUERTA"
-        varchar entidad_afectada
-        varchar id_registro_afectado
-        varchar resultado_operacion "EXITOSO | BLOQUEADO | RECHAZADO"
-        varchar ip_origen
-        varchar detalle_cruce
-        timestamp fecha_evento_auditoria
-    }
+    PERSONA |o--o{ USUARIO : identifica
+    ROL ||--o{ USUARIO : asigna
+    USUARIO ||--o| VERIFICACION_IDENTIDAD : verifica
+    USUARIO ||--o{ EVENTO : organiza
+    UBICACION ||--o{ EVENTO : aloja
+    CATEGORIA ||--o{ EVENTO : clasifica
+    EVENTO ||--o{ TIPO_ENTRADA : ofrece
+    USUARIO ||--o{ COMPRA : compra
+    COMPRA |o--o{ ENTRADA : agrupa
+    EVENTO ||--o{ ENTRADA : emite
+    TIPO_ENTRADA |o--o{ ENTRADA : tarifa
+    PERSONA ||--o{ ENTRADA : titular
+    ENTRADA ||--o{ HISTORIAL_ESTADO_ENTRADA : registra
+    USUARIO |o--o{ HISTORIAL_ESTADO_ENTRADA : responsable
+    COMPRA ||--o{ PAGO : intentos
+    PAGO ||--o{ REEMBOLSO : devoluciones
+    PAGO ||--o| COMPROBANTE : respalda
+    USUARIO ||--o{ NOTIFICACION : recibe
+    EVENTO |o--o{ NOTIFICACION : relaciona
+    COMPRA |o--o{ NOTIFICACION : relaciona
+    USUARIO |o--o{ AUDITORIA_SEGURIDAD : audita
 ```
+
+La identidad civil reside en `persona`; la tarifa, en `tipo_entrada`.
+Cada entrada conserva su precio y moneda históricos y referencia a la persona titular.
+Cantidad, total y disponibilidad son valores calculados. `comprobante` referencia a `pago`, sin duplicar comprador ni compra.
 
 ---
 
@@ -219,7 +108,7 @@ Al presionar **"FINALIZAR LA COMPRA"**, `CompraService.comprarEntrada()` ejecuta
 3. **Cabecera Comercial:** Inserta la orden en **`COMPRA`** (`estado_compra = CONFIRMADA`).
 4. **Pasarela de Pago (PCI-DSS):** Procesa el cobro y registra en **`PAGO`** la `pasarela_pago`, `medio_pago`, `referencia_externa_pago` y solo los `ultimos_cuatro_digitos` (`estado_pago = APROBADO`).
 5. **Emisión de Entradas Nominales:** Por cada asistente, inserta una fila en **`ENTRADA`** con su `codigo_unico_entrada` (UUID), `nombre_asistente_entrada`, `dni_asistente_entrada` y `precio_pagado_entrada`, y crea su primer registro en **`HISTORIAL_ESTADO_ENTRADA`**.
-6. **Comprobante con Firma SHA-256 y Envío:** Calcula el `hash_cruce_seguridad` (`SHA-256` de compra + cliente + DNI + evento + referencia de pago + monto + fecha), guarda el recibo en **`COMPROBANTE`** con `estado_envio_entrada = ENVIADO` y emite el aviso en **`NOTIFICACION`**.
+6. **Comprobante con SHA-256 y envío:** Calcula el hash de integridad, guarda el recibo en **`COMPROBANTE`** y el trabajo en **`NOTIFICACION`**, ambos pendientes. Un trabajador posterior al commit envía por SMTP las entradas nominales PNG con QR y el recibo; marca enviado únicamente después de aceptación por SMTP.
 7. **Trackeo de Seguridad:** Registra el cruce exitoso en **`AUDITORIA_SEGURIDAD`** (`CRUCE_COMPRA_EXITOSO`).
 
 ### 5. Validación en Puerta por el Organizador (`/organizador`)
@@ -273,7 +162,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
 | Rol | Email | Contraseña | Qué permite probar |
 | --- | --- | --- | --- |
 | **Cliente** | `cliente@butaca.com` | `cliente123` | Explorar catálogo, filtrar por categorías, verificar identidad KYC (RENAPER), comprar entradas nominales y ver mis tickets QR. |
-| **Organizador** | `org@butaca.com` | `org123` | Crear/publicar/cancelar eventos y **validar acceso en puerta con QR + DNI nominal**. |
+| **Organizador** | `org@butaca.com` | `org123` | Mis eventos, métricas y configuración por evento: fecha, cupo, tarifas, publicación y cancelación con doble confirmación. |
 | **Administrador** | `admin@butaca.com` | `admin123` | Gestionar ubicaciones y categorías, **cambiar roles de usuarios (`CLIENTE` ↔ `ORGANIZADOR`)** y auditar la tabla técnica de cruce de compras (`SHA-256`, pasarela y bitácora). |
 
 ---
@@ -283,20 +172,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
 ### Autenticación e Identidad (KYC)
 - `POST /api/auth/register` — Registro público de cuentas `CLIENTE`.
 - `POST /api/auth/login` — Inicio de sesión con validación `BCrypt`.
-- `GET /api/verificacion-identidad/usuario/{usuarioId}` — Consulta estado KYC del usuario.
-- `POST /api/verificacion-identidad/verificar` — Ejecuta la validación KYC obligatoria antes de comprar.
+- `GET /api/verificaciones/usuario/{usuarioId}` — Consulta estado KYC del usuario.
+- `POST /api/verificaciones` — Ejecuta la validación KYC simulada antes de comprar.
 
 ### Catálogo y Eventos
 - `GET /api/eventos` — Lista eventos publicados con disponibilidad calculada.
 - `GET /api/eventos/{id}` — Detalle de un espectáculo.
-- `POST /api/eventos` / `PUT /api/eventos/{id}` — Creación y edición por organizador.
-- `PUT /api/eventos/{id}/publicar` / `PUT /api/eventos/{id}/cancelar` — Ciclo de vida del evento.
+- `POST /api/eventos` / `PUT /api/eventos/{id}` — Creación y edición por organizador. Admiten `tipos_entrada`: lista de `{id_tipo_entrada?, nombre, descripcion?, precio, activo}` (1 a 20, al menos una activa); edición admite `version` para detectar un formulario desactualizado. Las respuestas incluyen tarifas, `entradas_vendidas`, `total_vendido`, `porcentaje_ocupacion` y la versión optimista real.
+- `PUT /api/eventos/{id}/publicar` / `PUT /api/eventos/{id}/cancelar` — Ciclo de vida del evento. Cancelar requiere JSON `{"confirmar_reembolsos":true,"titulo_confirmacion":"Título exacto","version":0}`; usar la versión actual de GET, no un valor fijo. Un evento cancelado no se puede republicar ni editar.
 
 ### Compras, Pasarela de Pago y Entradas Nominales
 - `POST /api/compras` — **Método transaccional de cruce de información** (KYC + Stock `@Version` + Pago PCI-DSS + Emisión Nominal + Comprobante `SHA-256` + Notificación + Auditoría).
 - `GET /api/compras/{id}` / `GET /api/compras/usuario/{id}` / `GET /api/compras/organizador/{id}`
 - `GET /api/entradas/validar/{codigo}` — Consulta estado y titularidad nominal de un QR en puerta.
-- `PUT /api/entradas/{id}/usar?dniPresentado={dni}` — Consume la entrada en puerta validando coincidencia de DNI.
+- `PUT /api/entradas/{id}/usar` — Consume la entrada. El formulario coteja DNI; la comprobación de DNI/propiedad en backend sigue pendiente.
 
 ### Administración y Auditoría de Seguridad
 - `GET /api/admin/dashboard` / `GET /api/admin/stats` — Métricas e historial de compras cruzadas.
@@ -317,4 +206,28 @@ Las pruebas de integración en [`ButacaApplicationTests.java`](src/test/java/com
 1. Filtrado del catálogo público por disponibilidad real.
 2. Bloqueo de seguridad cuando un usuario intenta comprar sin verificación de identidad KYC.
 3. Cruce transaccional completo de compra (emisión de entradas nominales con DNI por asistente, pago PCI-DSS, comprobante con hash `SHA-256`, incremento de `@Version` e historial).
-4. Validación en puerta con DNI nominal y rechazo ante DNI incorrecto o segundo intento de uso.
+4. Persistencia del modelo normalizado y generación de reembolsos al cancelar eventos. La suite actual no prueba autorización por rol, DNI en backend ni carreras de concurrencia.
+
+## Interfaz y verificación del frontend
+
+La identidad vigente sigue la referencia cinematográfica de Butaca: marca SVG con B roja y pochoclos, titulares condensados, hero amplio y paleta roja/carbón/marfil. Incluye intro en cada apertura o recarga, sin repetición en navegación interna, con salto y respeto por movimiento reducido. El favicon muestra el isotipo original y la pestaña se titula «Butaca · Más eventos para vos». [Recursos y secuencia de apertura](docs/identidad-y-apertura.md).
+
+El inicio presenta cuatro recomendados de categorías variadas en un carrusel automático de 7 segundos, con pausa al interactuar, navegación manual y deslizamiento en móvil. La cartelera combina categoría, orden de fecha y accesos «Próximos 7 días», «Este finde» y «Este mes», con carga progresiva de tarjetas y animaciones breves que respetan movimiento reducido.
+
+El perfil `demo` agrega 14 eventos ficticios de seis categorías desde `src/main/resources/demo-events.tsv`. Para incorporarlos a una demo ya abierta sin reiniciar la base H2, ejecutar desde la raíz `./scripts/seed-demo-events.ps1` (API predeterminada `http://localhost:8081/api`; configurable con `-ApiBaseUrl`). Repetir el comando conserva los eventos existentes y no duplica la semilla.
+
+El inicio prioriza los eventos; los paneles separan tareas en secciones. Agenda, ventas y actividad incluyen búsqueda, rangos inclusivos de fechas, orden ascendente/descendente y paginación local. El cliente puede ordenar por fecha del evento o de compra y descargar QR generados localmente, también sin conexión al generador externo.
+
+```powershell
+cd frontend
+pnpm run build
+node --test src/utils/collectionFilters.test.js src/utils/qrCode.test.js
+```
+
+`VITE_API_BASE_URL` conserva el fallback `http://localhost:8080/api`. Para usar el proxy de Vite, configurar `VITE_API_BASE_URL=/api` y `VITE_API_PROXY_TARGET=http://localhost:PUERTO` en un archivo local ignorado `frontend/.env.local`. En este equipo el backend existente usa 8081; el proxy estándar sigue apuntando a 8080 si no se configura otra cosa.
+
+Para activar Gmail, ejecutar `./scripts/configure-mail.ps1` desde PowerShell: pide las credenciales localmente, envía una prueba real y guarda `secrets/mail.properties`, ignorado por Git. Reiniciar el backend para activar la cola. El configurador fija el destino de prueba directamente en la cuenta Gmail elegida y la dirección de respuesta en `contact@leandro754.moe`, evitando el reenvío de Cloudflare hacia el mismo remitente. Se admite `-TestRecipient` para elegir otro destino. [Configuración, estados y límites](docs/correo-real-y-eventos.md).
+
+`POST /api/compras` admite `tipo_entrada_id` opcional; si se omite, utiliza la tarifa activa de menor precio. El backend valida evento, tarifa y disponibilidad y congela el precio real en las entradas. `POST /api/notificaciones` admite `compra_id` opcional y las respuestas muestran `estado_envio`.
+
+El organizador accede a una sola agenda en `/dashboard` y al panel por evento en `/dashboard/eventos/:eventId`. El modo oscuro se controla desde la cabecera y cambia con un telón rojo; respeta movimiento reducido.
