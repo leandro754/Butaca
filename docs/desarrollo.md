@@ -84,7 +84,7 @@ DB_USERNAME=tu_usuario DB_PASSWORD=tu_password ./mvnw spring-boot:run
 | Falta Java o falla Maven | Instalar JDK, revisar `java -version` y `JAVA_HOME` |
 | No se encuentra pnpm | Usar Corepack si está disponible o instalar la versión de `package.json` |
 | Puerto ocupado | Cerrar la instancia anterior o elegir otro puerto explícitamente |
-| La web no aparece en 8080 | Ejecutar el script integral o `build:demo` antes de Maven |
+| La web no aparece en 8081 | Ejecutar el script integral o `build:demo` antes de Maven |
 | API inaccesible desde Vite | Revisar backend, `VITE_API_BASE_URL` y `BUTACA_BACKEND_URL` |
 | Fallo de dependencias Maven/pnpm | Revisar conexión; la primera ejecución descarga dependencias |
 | Bindings Rolldown en WSL | Reinstalar con `pnpm install` dentro de WSL |

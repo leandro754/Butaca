@@ -1,66 +1,42 @@
-# Plan de exposición de Butaca en diez minutos
+# Plan de exposiciÃ³n de Butaca en diez minutos
 
-> **Alcance de la demo:** la pasarela de pago y el proveedor de identidad son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen decisiones de minimización de datos.
+Guion de trabajo para la versiÃ³n integrada de 16 entidades. Ensayar con las cuentas y la conexiÃ³n que se usarÃ¡n en la presentaciÃ³n. KYC, pagos y reembolsos son simulados; SMTP es opcional y real cuando se configura.
 
-Este guion de trabajo parte de la demo y luego explica el modelo relacional de 13 entidades, la compra transaccional, la identidad y el pago simulados, las entradas nominales y la auditoría. Debe ensayarse con la versión que se vaya a presentar. Los pendientes se detallan en [estado del proyecto](estado-del-proyecto.md).
+| Tiempo | Responsable | Recorrido |
+| --- | --- | --- |
+| 0:00â€“2:00 | Mariano | CatÃ¡logo, selecciÃ³n de tarifa, compra nominal y descarga de QR |
+| 2:00â€“3:30 | Santiago | Actores, alcance y separaciÃ³n de paneles |
+| 3:30â€“5:30 | Ignacio | Modelo DrawDB de 16 entidades, persona y precio histÃ³rico |
+| 5:30â€“7:30 | Leandro | KYC simulado, cruce de integridad y auditorÃ­a |
+| 7:30â€“9:15 | Mariano | EdiciÃ³n de tarifas, cancelaciÃ³n y resultados de pruebas |
+| 9:15â€“10:00 | Santiago | Pendientes y prÃ³ximos pasos |
 
----
+## PreparaciÃ³n
 
-## ⏱️ Distribución de los 10 Minutos
+Iniciar con `iniciar-windows.bat` o `bash scripts/demo.sh`. La demo estÃ¡ en http://localhost:8081; en desarrollo se abre Vite en 5173. Revisar [la guÃ­a de consultas H2](guia-presentacion.md).
 
-| Tiempo | Responsable | Núcleo | Qué se muestra o explica |
-| --- | --- | --- | --- |
-| 0:00–2:00 | Mariano | Resultado en vivo | Demo: filtro por Categorías, KYC con proveedor simulado (tipo RENAPER), pago simulado y emisión de entradas nominales con QR + DNI. |
-| 2:00–3:30 | Santiago | Problema y Roles | Separación de vistas: Cliente, Organizador (escáner QR + DNI en puerta) y Administrador (gestión de roles y auditoría). |
-| 3:30–5:30 | Ignacio | Diagrama ER (13 Tablas) y 3FN | Cómo se mueven los datos en el diagrama durante una compra y por qué cumple 1FN, 2FN y 3FN sin redundancia. |
-| 5:30–7:30 | Leandro | Seguridad Informática | Minimización de datos en `pago`, KYC en `verificacion_identidad`, firma `SHA-256` en `comprobante`, `@Version` y bitácora `auditoria_seguridad`. |
-| 7:30–9:15 | Mariano | Pruebas e integridad | Pruebas de integración (`ButacaApplicationTests`) del circuito y explicación de los campos `@Version`. No se presenta una prueba concurrente automatizada. |
-| 9:15–10:00 | Santiago | Cierre | Síntesis del valor académico y evolución a producción. |
+Usar las cuentas semilla de cliente, organizador y administrador del README. Estas cuentas ya tienen KYC. Registrar una cuenta nueva si se quiere mostrar la carga de imÃ¡genes y el rechazo de una evidencia invÃ¡lida.
 
----
+## Cliente
 
-## 1. Recorrido de Demo en Vivo (`http://localhost:8080`)
+Mostrar catÃ¡logo y tarifas disponibles. Comprar declarando nombre y DNI de cada asistente. Explicar que el servidor calcula el importe y que las imÃ¡genes KYC no se guardan. Descargar los tickets y mostrar el recibo.
 
-### Paso A — Vista Cliente (`cliente@butaca.com` / `cliente123`)
-1. Mostrar el modo oscuro renovado con imágenes únicas por espectáculo y filtrar desde el botón **Categorías** de la barra superior.
-2. Entrar a un evento y hacer clic en **Comprar entradas**.
-3. En el Checkout:
-   - Mostrar el **Paso 1 (Identidad verificada con proveedor simulado)**: explicar que el backend bloquea cualquier compra si el usuario no tiene registro `VERIFICADA` en `verificacion_identidad`.
-   - Mostrar el **Paso 2 (Titularidad Nominal)**: si se compran 2 entradas, se pide nombre y DNI de cada asistente individual.
-   - Mostrar el **Paso 3 (Pasarela de pago simulada)**: tarjeta interactiva o billetera virtual; aclarar que al servidor solo viajan los últimos 4 dígitos.
-4. Al confirmar, mostrar la pantalla limpia del cliente con sus tickets QR nominales listos para presentar en puerta (sin abrumarlo con hashes técnicos).
+## Organizador
 
-### Paso B — Vista Organizador (`org@butaca.com` / `org123`)
-1. En el panel del organizador, ir al **Control de Acceso en Puerta (QR + DNI Nominal)**.
-2. Pegar el código UUID de la entrada recién comprada y consultar los datos del asistente. El control de DNI consiste en comparar visualmente el documento con el dato mostrado; la API actual no recibe un DNI para contrastarlo al marcar el ticket como usado.
-3. Marcar la entrada como utilizada y mostrar el cambio a `USADA` en `historial_estado_entrada` y `auditoria_seguridad`. Intentar usarla otra vez para mostrar el rechazo por estado.
+Consultar el UUID y comparar visualmente el DNI fÃ­sico. Marcar la entrada como usada y demostrar el rechazo de un segundo uso.
 
-### Paso C — Vista Administrador (`admin@butaca.com` / `admin123`)
-1. Mostrar la sección de **Usuarios y Roles** y la gestión disponible en la interfaz. Aclarar que el backend de demo acepta un rol en el registro y no implementa autorización de producción; la separación visual de paneles no equivale a proteger los endpoints.
-2. Mostrar la tabla de **Cruce Técnico de Compras y Pagos**: donde el administrador audita la referencia externa de pasarela, los últimos 4 dígitos y el hash de integridad `SHA-256` del comprobante.
-3. Mostrar la **Bitácora de Auditoría de Seguridad** en vivo.
+Editar un evento y sus tarifas. Explicar que una entrada emitida mantiene su precio histÃ³rico. Para cancelar, demostrar las dos confirmaciones y el reembolso simulado; revisar el estado del ticket.
 
----
+## Administrador y modelo
 
-## 2. Preguntas Clave del Profesor y Respuestas Exactas
+Mostrar compras, usuarios, ubicaciones, categorÃ­as y auditorÃ­a. Aclarar que la separaciÃ³n visual de paneles todavÃ­a no equivale a autorizaciÃ³n en la API.
 
-### ¿Cómo verifican la identidad de alguien en la app antes de comprar?
-Mediante la tabla **`verificacion_identidad`** (relación `1:1` con `usuario`). Antes de ejecutar `CompraService.comprarEntrada()`, el servicio verifica que el comprador posea `estado_verificacion = VERIFICADA`. Siguiendo el principio de minimización de datos (Ley 25.326), no guardamos imágenes biométricas crudas en la base, sino el método, el proveedor, el puntaje, el token único `codigo_validacion_kyc` y los hashes SHA-256 de las evidencias. El proveedor incluido es un simulador; no es RENAPER real.
+En el diagrama, seguir persona â†’ usuario â†’ compra â†’ pago â†’ comprobante y evento â†’ tipo_entrada â†’ entrada â†’ persona titular. Mostrar que el total de compra y el cupo disponible se calculan.
 
-### ¿Cómo agregaron la pasarela de pago cuidando 3FN y seguridad?
-Agregamos la entidad **`pago`** vinculada `1:1` con `compra`.
-- **Minimización de datos:** Nunca se almacena el número completo de tarjeta (PAN) ni el CVV; solo se guarda `ultimos_cuatro_digitos`, `pasarela_pago`, `medio_pago`, la `referencia_externa_pago`, el `monto_pago`, la moneda y el código de autorización. Esto sigue buenas prácticas inspiradas en PCI-DSS, pero no constituye una certificación.
-- **3FN:** La cantidad y el total de la compra se obtienen de las entradas. `monto_pago` es un hecho externo: el importe autorizado por la pasarela, y se usa para el cruce contra la suma de `entrada.precio_pagado_entrada`.
+## Correo y pruebas
 
-### ¿Qué hace exactamente el método que cruza la información al comprar?
-Es el método transaccional `CompraService.comprarEntrada()`, anotado con `@Transactional`. En una sola unidad atómica cruza **8 tablas**:
-1. Valida identidad `VERIFICADA` en `verificacion_identidad`.
-2. Bloquea optimistamente el evento con `@Version` en `evento` y verifica el cupo libre contando `entrada`.
-3. Crea la cabecera en `compra`.
-4. Procesa el pago con `PagoGateway` (simulado en la demo) y valida monto y moneda antes de registrar la transacción aprobada en `pago`.
-5. Emite cada ticket nominal con `dni_asistente_entrada` y `nombre_asistente_entrada` en `entrada` + su traza inicial en `historial_estado_entrada`.
-6. Genera el `comprobante` calculando un hash `SHA-256` (`hash_cruce_seguridad`) que sella comprador + DNI + código KYC + referencia/monto del pago + UUIDs y datos nominales de las entradas, y envía el aviso en `notificacion`.
-7. Deja constancia en `auditoria_seguridad`; los rechazos se auditan en una transacción independiente para que el rollback no borre la evidencia.
+Si SMTP no estÃ¡ configurado, mostrar la notificaciÃ³n pendiente. Si se habilita para la exposiciÃ³n, explicar que la aceptaciÃ³n SMTP no demuestra recepciÃ³n ni lectura y mantener el destinatario de prueba.
 
-### ¿Por qué hicieron la entrada nominal en la tabla `entrada` y no en `compra`?
-Porque un mismo comprador puede adquirir 3 entradas en una sola compra (para él y dos acompañantes). Si el DNI estuviera en `compra`, habría grupos repetitivos (violando **1FN**) o las 3 personas tendrían el mismo DNI en su entrada. Al colocar `nombre_asistente_entrada` y `dni_asistente_entrada` en cada fila de **`entrada`**, cada ticket QR pertenece a un asistente físico único y se valida en puerta contra su DNI real.
+Presentar las pruebas ejecutadas para compra, KYC, pago rechazado, tarifas histÃ³ricas, cancelaciÃ³n y adjuntos de correo. No presentar una prueba de carga o concurrencia como realizada si todavÃ­a estÃ¡ pendiente.
+
+Cerrar con los [pendientes del proyecto](estado-del-proyecto.md).

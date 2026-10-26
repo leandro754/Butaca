@@ -7,10 +7,12 @@ export async function request(path, options = {}) {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(optionHeaders || {})
   };
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...rest,
-    headers
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers });
+  } catch (error) {
+    throw new Error("No pudimos conectar con Butaca. Intenta de nuevo en unos instantes.", { cause: error });
+  }
 
   if (!response.ok) {
     const message = await readErrorMessage(response);

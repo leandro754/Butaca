@@ -17,7 +17,7 @@
 
 - La compra usa `PagoGateway`; la implementación incluida es `PagoSimuladoGateway`.
 - El servidor obtiene el monto esperado del precio del evento y los asistentes; el total de la compra se expone como suma de los precios históricos de sus entradas.
-- Cada `Entrada` guarda `precio_pagado` con el precio histórico del evento.
+- Cada `Entrada` guarda el precio historico de su tarifa y referencia a su persona titular.
 - El `Pago` guarda `monto`, `moneda`, `referencia_externa`, `codigo_autorizacion` y solo los últimos cuatro dígitos.
 - Si el monto aprobado por la pasarela no coincide con el total calculado, la compra se bloquea.
 - Para probar un rechazo en la demo, enviar `token_pago` con un valor que empiece con `RECHAZ` (por ejemplo `RECHAZAR-DEMO`).
@@ -56,19 +56,19 @@ El endpoint `GET /api/compras/{id}/verificar-cruce` recalcula el hash y devuelve
 - Checkout con carga de foto del DNI y selfie.
 - Envío `multipart/form-data` real.
 - Si el KYC es rechazado, se muestra el motivo y no se habilita el pago.
-- La confirmación consulta el cruce de integridad y muestra el monto efectivamente autorizado.
+- La confirmacion muestra los tickets descargables; el endpoint de cruce sigue disponible para auditoria.
 - La UI aclara que la pasarela y el KYC son simulados y que no se envían al backend el número completo de tarjeta ni el CVV.
 
 ---
 
 ## Modelo de datos y migración pendiente
 
-El modelo actual ya incluye los campos nuevos. En la demo H2 el esquema se recrea con `spring.jpa.hibernate.ddl-auto=create-drop`.
+El modelo integra las 16 entidades de master y conserva las evidencias KYC. Los hashes y el proveedor son columnas de verificacion_identidad; pago usa monto_pago, moneda_pago y respuesta_proveedor_pago para los datos autorizados. En la demo H2 el esquema se recrea con `spring.jpa.hibernate.ddl-auto=create-drop`.
 
 Campos agregados:
 
 - `verificacion_identidad`: `hash_evidencia_documental`, `hash_selfie`, `proveedor_identidad`, `puntaje_coincidencia`.
-- `pago`: `monto_pago`, `moneda_pago`, `codigo_autorizacion_pago`.
+- `pago`: el codigo de autorizacion se conserva en `respuesta_proveedor_pago`, sin duplicar monto ni moneda.
 
 Para una base PostgreSQL existente, el script de migración está en:
 

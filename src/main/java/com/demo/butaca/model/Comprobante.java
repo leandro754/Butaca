@@ -52,7 +52,7 @@ public class Comprobante extends AuditableEntity {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_envio_comprobante", nullable = false, length = 20)
-    private EstadoEnvio estadoEnvioComprobante = EstadoEnvio.ENVIADO;
+    private EstadoEnvio estadoEnvioComprobante = EstadoEnvio.PENDIENTE;
 
     @Column(name = "fecha_emision_comprobante", nullable = false)
     private LocalDateTime fechaEmisionComprobante;

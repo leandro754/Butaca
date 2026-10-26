@@ -9,7 +9,12 @@ import ConfirmationPage from "./pages/ConfirmationPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
-import { clearAuthenticatedUser, getAuthenticatedUser, saveAuthenticatedUser } from "./utils/authStorage";
+import OrganizerEventPage from "./pages/OrganizerEventPage";
+import {
+  clearAuthenticatedUser,
+  getAuthenticatedUser,
+  saveAuthenticatedUser,
+} from "./utils/authStorage";
 
 function App() {
   const [currentUser, setCurrentUser] = useState(() => getAuthenticatedUser());
@@ -30,11 +35,26 @@ function App() {
         <Route path="/" element={<HomePage currentUser={currentUser} />} />
         <Route path="/buscar" element={<SearchPage />} />
         <Route path="/eventos/:eventId" element={<EventDetailPage />} />
-        <Route path="/checkout" element={<CheckoutPage currentUser={currentUser} />} />
+        <Route
+          path="/checkout"
+          element={<CheckoutPage currentUser={currentUser} />}
+        />
         <Route path="/confirmacion" element={<ConfirmationPage />} />
-        <Route path="/login" element={<LoginPage currentUser={currentUser} onLogin={handleLogin} />} />
+        <Route
+          path="/login"
+          element={
+            <LoginPage currentUser={currentUser} onLogin={handleLogin} />
+          }
+        />
         <Route path="/registro" element={<RegisterPage />} />
-        <Route path="/dashboard" element={<DashboardPage currentUser={currentUser} />} />
+        <Route
+          path="/dashboard"
+          element={<DashboardPage currentUser={currentUser} />}
+        />
+        <Route
+          path="/dashboard/eventos/:eventId"
+          element={<OrganizerEventPage currentUser={currentUser} />}
+        />
       </Routes>
     </AppShell>
   );

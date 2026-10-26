@@ -9,8 +9,10 @@ import com.demo.butaca.model.EstadoUsuario;
 import com.demo.butaca.model.EstadoVerificacion;
 import com.demo.butaca.model.MetodoVerificacion;
 import com.demo.butaca.model.Usuario;
+import com.demo.butaca.model.Persona;
 import com.demo.butaca.model.VerificacionIdentidad;
 import com.demo.butaca.repository.UsuarioRepository;
+import com.demo.butaca.repository.PersonaRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
 import com.demo.butaca.util.HashUtils;
 import org.springframework.stereotype.Service;
@@ -25,17 +27,20 @@ public class VerificacionIdentidadService {
 
     private final VerificacionIdentidadRepository verificacionRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PersonaRepository personaRepository;
     private final NotificacionService notificacionService;
     private final AuditoriaSeguridadService auditoriaService;
     private final ProveedorIdentidad proveedorIdentidad;
 
     public VerificacionIdentidadService(VerificacionIdentidadRepository verificacionRepository,
                                         UsuarioRepository usuarioRepository,
+                                        PersonaRepository personaRepository,
                                         NotificacionService notificacionService,
                                         AuditoriaSeguridadService auditoriaService,
                                         ProveedorIdentidad proveedorIdentidad) {
         this.verificacionRepository = verificacionRepository;
         this.usuarioRepository = usuarioRepository;
+        this.personaRepository = personaRepository;
         this.notificacionService = notificacionService;
         this.auditoriaService = auditoriaService;
         this.proveedorIdentidad = proveedorIdentidad;
@@ -94,7 +99,7 @@ public class VerificacionIdentidadService {
             return toDTO(existente.get());
         }
 
-        Optional<Usuario> otroUsuario = usuarioRepository.findByDniUsuario(dni)
+        Optional<Usuario> otroUsuario = usuarioRepository.findFirstByPersonaDniPersona(Long.valueOf(dni))
                 .filter(otro -> !otro.getIdUsuario().equals(usuario.getIdUsuario()));
         if (otroUsuario.isPresent()) {
             auditarRechazo(usuario, "El DNI ya está asociado a otra cuenta");
@@ -155,6 +160,16 @@ public class VerificacionIdentidadService {
         verificacion = verificacionRepository.save(verificacion);
 
         if (resultado.aprobado()) {
+            if (usuario.getPersona() == null) {
+                Persona persona = personaRepository.findByDniPersona(Long.parseLong(dni))
+                        .orElseGet(() -> personaRepository.save(Persona.builder()
+                                .dniPersona(Long.parseLong(dni))
+                                .nombrePersona(usuario.getNombreUsuario())
+                                .apellidoPersona(usuario.getApellidoUsuario())
+                                .emailPersona(usuario.getEmailUsuario())
+                                .build()));
+                usuario.setPersona(persona);
+            }
             usuario.setDniUsuario(dni);
             usuarioRepository.save(usuario);
         }

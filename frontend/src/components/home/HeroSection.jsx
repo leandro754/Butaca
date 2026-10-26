@@ -1,117 +1,237 @@
-import { useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Link } from "react-router-dom";
-import Button from "../ui/Button";
-import { formatDate, formatPrice } from "../../utils/formatters";
+import { dateParts, formatDate, formatPrice } from "../../utils/formatters";
+import { useCarousel, CAROUSEL_INTERVAL } from "../../hooks/useCarousel";
 
-function HeroSection({ featuredEvent, events = [] }) {
-  const showcaseList = events.length > 0 ? events.slice(0, 4) : featuredEvent ? [featuredEvent] : [];
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const current = showcaseList[selectedIndex] || featuredEvent;
-
-  if (!current) {
+function HeroSection({ events = [], loading }) {
+  const panelId = useId();
+  const showcase = events.slice(0, 4);
+  const carousel = useCarousel(showcase.length);
+  const { activeIndex, step, playing } = carousel;
+  const touchStart = useRef(null);
+  const selectorRef = useRef(null);
+  const current = showcase[activeIndex];
+  const nextImage = showcase[(activeIndex + 1) % showcase.length]?.imagen;
+  useEffect(() => {
+    if (nextImage && showcase.length > 1) {
+      const image = new Image();
+      image.src = nextImage;
+    }
+  }, [nextImage, showcase.length]);
+  useEffect(() => {
+    const selector = selectorRef.current;
+    const button = selector?.children[activeIndex];
+    if (button && selector.scrollWidth > selector.clientWidth) {
+      selector.scrollTo({
+        left: button.offsetLeft - selector.children[0].offsetLeft,
+        behavior: carousel.reducedMotion ? "instant" : "smooth",
+      });
+    }
+  }, [activeIndex, carousel.reducedMotion]);
+  if (!current)
     return (
-      <section className="hero-section">
-        <div className="container" style={{ textAlign: "center", padding: "80px 0" }}>
-          <p className="hero-kicker">Experiencias en vivo</p>
-          <h1
-            style={{
-              fontSize: "clamp(2.4rem, 5vw, 5rem)",
-              fontWeight: 900,
-              letterSpacing: "-0.04em",
-              lineHeight: 1,
-              margin: "0 0 20px",
-              background: "linear-gradient(135deg, #f0f4f8 40%, rgba(240,244,248,0.4))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text"
-            }}
-          >
-            Tu próximo evento<br />empieza aquí.
+      <section className="billboard-section billboard-section--empty">
+        <div className="container billboard-empty">
+          <p className="section-eyebrow">En vivo / Argentina</p>
+          <h1>
+            {loading
+              ? "Se prepara la función."
+              : "La próxima salida está por llegar."}
           </h1>
-          <p style={{ color: "var(--text-2)", fontSize: "1.1rem", marginBottom: 32 }}>
-            Explorá conciertos, deportes, teatro y festivales en un solo lugar.
+          <p>
+            {loading
+              ? "Estamos cargando la cartelera…"
+              : "Por ahora no hay eventos con entradas disponibles."}
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-            <Link to="/buscar"><Button>Explorar cartelera</Button></Link>
-          </div>
+          <Link to="/buscar" className="button button-primary">
+            Explorar cartelera ↗
+          </Link>
         </div>
       </section>
     );
-  }
-
+  const parts = dateParts(current.fecha);
   return (
-    <section className="hero-section">
-      <div className="container hero-grid">
-        <div className="hero-copy">
-          <p className="hero-kicker">Cartelera Oficial · Temporada en Vivo</p>
-          <h1>Eventos que no podés perderte.</h1>
-          <p className="hero-text">
-            Asegurá tu lugar en los mejores recitales, obras de teatro, torneos y festivales con acceso digital inmediato.
-          </p>
-
-          <div className="hero-badges">
-            <span>{current.categoria}</span>
-            <span>{current.recinto || current.ciudad}</span>
-            <span>Desde {formatPrice(current.precioMinimo)}</span>
-          </div>
-
-          <div className="hero-actions">
-            <Link to={`/eventos/${current.id}`}>
-              <Button>Comprar entradas</Button>
-            </Link>
-            <Link to="/buscar">
-              <Button variant="ghost">Explorar cartelera →</Button>
-            </Link>
-          </div>
-
-          {showcaseList.length > 1 ? (
-            <div style={{ display: "flex", gap: 8, marginTop: 22, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-3)", marginRight: 4 }}>En cartelera:</span>
-              {showcaseList.map((item, idx) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelectedIndex(idx)}
-                  style={{
-                    padding: "5px 12px",
-                    borderRadius: "999px",
-                    fontSize: "0.76rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    border: idx === selectedIndex ? "1px solid var(--primary)" : "1px solid var(--border)",
-                    background: idx === selectedIndex ? "rgba(225, 29, 72, 0.18)" : "rgba(255,255,255,0.03)",
-                    color: idx === selectedIndex ? "#fff" : "var(--text-2)",
-                    transition: "all 0.2s"
-                  }}
-                >
-                  {item.nombre.split(" ").slice(0, 2).join(" ")}
-                </button>
-              ))}
+    <section
+      className="billboard-section"
+      aria-label="Recomendados en Butaca"
+      aria-roledescription="carrusel"
+      {...carousel.interactionProps}
+    >
+      <div
+        className="billboard"
+        id={panelId}
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          touchStart.current = { x: touch.clientX, y: touch.clientY };
+        }}
+        onTouchEnd={(event) => {
+          if (!touchStart.current || showcase.length < 2) return;
+          const touch = event.changedTouches[0];
+          const dx = touch.clientX - touchStart.current.x;
+          const dy = touch.clientY - touchStart.current.y;
+          if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5)
+            step(dx > 0 ? -1 : 1);
+          touchStart.current = null;
+        }}
+        onTouchCancel={() => {
+          touchStart.current = null;
+        }}
+      >
+        <img
+          key={current.imagen}
+          className="billboard-image"
+          src={current.imagen}
+          alt=""
+          fetchPriority="high"
+        />
+        <div className="stage-curtain stage-curtain--left" aria-hidden="true" />
+        <div
+          className="stage-curtain stage-curtain--right"
+          aria-hidden="true"
+        />
+        <div className="container billboard-inner">
+          <div
+            className="billboard-content"
+            key={current.id}
+            aria-live={playing ? "off" : "polite"}
+            aria-atomic="true"
+          >
+            <p className="billboard-category">
+              <span className="hero-category-name">{current.categoria}</span>
+              <svg
+                className="mini-ticket"
+                viewBox="0 0 28 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M2 3h24v4a3 3 0 0 0 0 6v4H2v-4a3 3 0 0 0 0-6V3Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M9 6v8M19 6v8"
+                  stroke="currentColor"
+                  strokeDasharray="2 2"
+                />
+              </svg>
+              <span className="hero-category-divider" aria-hidden="true">
+                —
+              </span>
+              Recomendados
+            </p>
+            <h1>{current.nombre}</h1>
+            <p className="billboard-venue">{current.recinto}</p>
+            <p className="billboard-date">
+              {formatDate(current.fecha)} · {current.hora} h
+            </p>
+            <div className="billboard-actions">
+              <Link
+                to={`/eventos/${current.id}`}
+                className="button button-primary"
+              >
+                Ver entradas <span aria-hidden="true">↗</span>
+              </Link>
+              <span>Desde {formatPrice(current.precioMinimo)}</span>
             </div>
-          ) : null}
-        </div>
-
-        <div className="hero-card">
-          <img
-            src={current.imagen}
-            alt={current.nombre}
-            style={{ height: 260, width: "100%", objectFit: "cover", transition: "opacity 0.25s" }}
-          />
-          <div className="hero-card-body">
-            <p className="hero-card-label">Show destacado · {current.categoria}</p>
-            <h2>{current.nombre}</h2>
-            <p style={{ color: "var(--text-2)", fontSize: "0.88rem" }}>{current.descripcion}</p>
-            <ul>
-              <li>📅 {formatDate(current.fecha)} — {current.hora} hs</li>
-              <li>📍 {current.recinto}</li>
-              <li>🎟️ {current.disponibilidad} entradas disponibles</li>
-            </ul>
+          </div>
+          <div className="billboard-date-stamp" aria-hidden="true">
+            <span>{parts.month}</span>
+            <strong>{parts.day}</strong>
+            <small>{current.hora} h</small>
+          </div>
+          <div className="billboard-controls">
+            <span
+              className="billboard-number"
+              aria-label={`Evento ${activeIndex + 1} de ${showcase.length}`}
+            >
+              {String(activeIndex + 1).padStart(2, "0")} /{" "}
+              {String(showcase.length).padStart(2, "0")}
+            </span>
+            {showcase.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => step(-1)}
+                  aria-label="Evento anterior"
+                  aria-controls={panelId}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m14 6-6 6 6 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => step(1)}
+                  aria-label="Evento siguiente"
+                  aria-controls={panelId}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m10 6 6 6-6 6" />
+                  </svg>
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
+      {showcase.length > 1 ? (
+        <div className="featured-strip">
+          <div
+            className="container billboard-selector"
+            ref={selectorRef}
+            aria-label="Elegir evento destacado"
+          >
+            {showcase.map((event, index) => (
+              <button
+                type="button"
+                key={event.id}
+                aria-pressed={index === activeIndex}
+                aria-controls={panelId}
+                onClick={() => carousel.select(index)}
+              >
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{event.nombre}</strong>
+                <small>
+                  {dateParts(event.fecha).day} {dateParts(event.fecha).month}
+                </small>
+                {index === activeIndex && !carousel.reducedMotion ? (
+                  <i
+                    key={current.id}
+                    className="carousel-progress"
+                    aria-hidden="true"
+                    style={{
+                      animationDuration: `${CAROUSEL_INTERVAL}ms`,
+                      animationPlayState: playing ? "running" : "paused",
+                    }}
+                  />
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
-
 export default HeroSection;
-

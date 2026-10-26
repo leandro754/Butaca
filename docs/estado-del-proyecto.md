@@ -11,15 +11,17 @@ Revisión del 26 de octubre de 2026. Butaca está en desarrollo; esta lista dist
 - Compra nominal y pago simulado con validación de monto.
 - Tickets con UUID/QR, precio histórico, historial y marca de uso.
 - Comprobantes con cruce SHA-256, notificaciones y auditoría.
+- Tarifas por evento, reprogramacion y reembolsos simulados.
+- Cola de correo SMTP opcional, con tickets y recibos adjuntos.
 - Demo con H2 y datos semilla; configuración alternativa para PostgreSQL.
 
 ## Antes de presentar
 
 | Pendiente | Resultado esperado |
 | --- | --- |
-| Conciliar diagramas | El diagrama remoto de DrawDB leído en esta revisión tiene 16 tablas; el backend y el DBML local implementan 13. Definir qué modelo se entregará y mantener código, SRS y diagramas consistentes. Esta limpieza no migra el dominio a 16 tablas. |
+| Conciliar diagramas | Master y esta rama ya integran el modelo de 16 entidades. Mantener sincronizados el snapshot DrawDB, el DBML, el DDL y las entidades JPA; las evidencias KYC extendidas se documentan en los archivos locales. |
 | Ensayar el recorrido | Probar cliente, organizador y administrador con las mismas cuentas, eventos y versión de la presentación. |
-| Preparar recursos | Resolver dependencias y comprobar imágenes y fuentes externas con la conexión que se usará. |
+| Preparar recursos | Resolver dependencias y comprobar las imagenes externas y las fuentes locales con la conexión que se usará. |
 | Ampliar verificación | Añadir pruebas concurrentes de compra y uso de tickets; las pruebas actuales no demuestran comportamiento bajo carga. |
 | Validar otros sistemas | Probar el arranque Bash en macOS/Linux con todos los requisitos; la revisión actual ejecutó ambos modos en Windows y verificó la sintaxis Bash. |
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getAdminAuditLogs,
   getAdminPurchases,
@@ -6,285 +6,554 @@ import {
   getAdminUsers,
   getCategories,
   getLocations,
-  updateUserRole
+  updateUserRole,
 } from "../services/eventService";
-import { formatDate, formatPrice } from "../utils/formatters";
+import { formatDateTime, formatPrice } from "../utils/formatters";
+import {
+  approvedRevenue,
+  isInDateRange,
+  normalizeText,
+  sortByDate,
+} from "../utils/collectionFilters";
+import PurchaseList from "../components/events/PurchaseList";
+import CatalogManager from "../components/events/CatalogManager";
+import RecordFilters from "../components/ui/RecordFilters";
+import Pagination from "../components/ui/Pagination";
+import StatusBadge from "../components/ui/StatusBadge";
+
+const tabs = [
+  { id: "resumen", label: "Resumen" },
+  { id: "usuarios", label: "Usuarios" },
+  { id: "ventas", label: "Ventas" },
+  { id: "catalogos", label: "Catálogos" },
+  { id: "auditoria", label: "Actividad" },
+];
 
 function AdminDashboard() {
-  const [stats, setStats] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [purchases, setPurchases] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
+  const [data, setData] = useState({
+    stats: {},
+    users: [],
+    purchases: [],
+    categories: [],
+    locations: [],
+    auditLogs: [],
+  });
+  const [tab, setTab] = useState("resumen");
   const [loading, setLoading] = useState(true);
   const [roleUpdatingId, setRoleUpdatingId] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [userRole, setUserRole] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [auditFilters, setAuditFilters] = useState({
+    search: "",
+    from: "",
+    to: "",
+    sort: "desc",
+    status: "",
+  });
+  const [auditPage, setAuditPage] = useState(1);
+  const { stats, users, purchases, categories, locations, auditLogs } = data;
 
   async function loadAll() {
     setLoading(true);
+    setError("");
     try {
-      const [statsData, usersData, purchasesData, categoryData, locationData, auditData] = await Promise.all([
-        getAdminStats(),
-        getAdminUsers(),
-        getAdminPurchases(),
-        getCategories(),
-        getLocations(),
-        getAdminAuditLogs()
-      ]);
-      setStats(statsData || {});
-      setUsers(usersData || []);
-      setPurchases(purchasesData || []);
-      setCategories(categoryData || []);
-      setLocations(locationData || []);
-      setAuditLogs(auditData || []);
-    } catch (loadError) {
-      setError(loadError.message);
+      const [stats, users, purchases, categories, locations, auditLogs] =
+        await Promise.all([
+          getAdminStats(),
+          getAdminUsers(),
+          getAdminPurchases(),
+          getCategories(),
+          getLocations(),
+          getAdminAuditLogs(),
+        ]);
+      setData({
+        stats: stats || {},
+        users: users || [],
+        purchases: purchases || [],
+        categories: categories || [],
+        locations: locations || [],
+        auditLogs: auditLogs || [],
+      });
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   }
-
   useEffect(() => {
     loadAll();
   }, []);
 
   async function handleToggleOrganizer(user) {
-    const currentRole = user.rol_usuario || "CLIENTE";
-    const nextRole = currentRole === "ORGANIZADOR" ? "CLIENTE" : "ORGANIZADOR";
+    const nextRole =
+      user.rol_usuario === "ORGANIZADOR" ? "CLIENTE" : "ORGANIZADOR";
+    if (
+      !window.confirm(
+        `¿Cambiar a ${user.email_usuario} al rol ${nextRole.toLowerCase()}?`,
+      )
+    )
+      return;
     setRoleUpdatingId(user.id_usuario);
     setError("");
+    setNotice("");
     try {
-      await updateUserRole(user.id_usuario, nextRole);
-      await loadAll();
+      const updated = await updateUserRole(user.id_usuario, nextRole);
+      setData((current) => ({
+        ...current,
+        users: current.users.map((item) =>
+          item.id_usuario === user.id_usuario
+            ? { ...item, ...updated, rol_usuario: nextRole }
+            : item,
+        ),
+      }));
+      setNotice(`Se actualizó el rol de ${user.email_usuario}.`);
     } catch (err) {
-      setError(err.message || "No se pudo actualizar el rol del usuario.");
+      setError(err.message || "No se pudo actualizar el rol.");
     } finally {
       setRoleUpdatingId(null);
     }
   }
 
-  const statLabels = {
-    usuarios: "Usuarios Registrados",
-    verificaciones_kyc: "Identidades KYC Verificadas",
-    eventos: "Eventos Creados",
-    eventos_publicados: "Eventos Publicados",
-    compras: "Compras Procesadas",
-    pagos_aprobados: "Pagos Pasarela Aprobados",
-    comprobantes_emitidos: "Comprobantes SHA-256",
-    entradas: "Tickets Nominales Emitidos",
-    eventos_auditoria: "Eventos de Tracking"
-  };
+  const filteredUsers = users.filter(
+    (user) =>
+      (!userRole || user.rol_usuario === userRole) &&
+      normalizeText(
+        `${user.nombre_usuario} ${user.apellido_usuario} ${user.email_usuario} ${user.dni_usuario}`,
+      ).includes(normalizeText(userSearch)),
+  );
+  const visibleUserPage = Math.min(
+    userPage,
+    Math.max(1, Math.ceil(filteredUsers.length / 8)),
+  );
+  const filteredLogs = useMemo(
+    () =>
+      sortByDate(
+        auditLogs.filter(
+          (log) =>
+            isInDateRange(
+              log.fecha_auditoria,
+              auditFilters.from,
+              auditFilters.to,
+            ) &&
+            (!auditFilters.status ||
+              (auditFilters.status === "INCIDENCIAS"
+                ? log.resultado_auditoria !== "EXITOSO"
+                : log.resultado_auditoria === auditFilters.status)) &&
+            normalizeText(
+              `${log.accion_auditoria} ${log.email_usuario} ${log.detalle_tracking}`,
+            ).includes(normalizeText(auditFilters.search)),
+        ),
+        (log) => log.fecha_auditoria,
+        auditFilters.sort,
+      ),
+    [auditLogs, auditFilters],
+  );
+  const visibleAuditPage = Math.min(
+    auditPage,
+    Math.max(1, Math.ceil(filteredLogs.length / 8)),
+  );
+  const needsReview = auditLogs.filter(
+    (log) => log.resultado_auditoria !== "EXITOSO",
+  );
+  const pendingReceipts = purchases.filter(
+    (order) =>
+      order.comprobante &&
+      order.comprobante.estado_envio_comprobante !== "ENVIADO",
+  );
+  const latest = sortByDate(
+    purchases,
+    (order) => order.fecha_compra,
+    "desc",
+  ).slice(0, 4);
 
   return (
-    <section className="container page-block">
+    <section className="container page-block workspace-page">
       <div className="dashboard-header">
         <div>
-          <p className="section-eyebrow">Administración y Seguridad Informática</p>
-          <h1>Panel de Control Global, Roles y Auditoría</h1>
+          <p className="section-eyebrow">Butaca / Administración</p>
+          <h1>Administración</h1>
+          <p className="section-text">
+            Ventas, personas y lo que necesita tu atención.
+          </p>
         </div>
+        <button
+          type="button"
+          className="btn-copy"
+          onClick={loadAll}
+          disabled={loading}
+        >
+          {loading ? "Actualizando…" : "Actualizar datos"}
+        </button>
       </div>
-
-      {error ? <div className="auth-error">{error}</div> : null}
-
-      {loading ? (
-        <div className="dashboard-grid">
-          <div className="skeleton skeleton-card" />
-          <div className="skeleton skeleton-card" />
+      <nav className="workspace-tabs" aria-label="Secciones de administración">
+        {tabs.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            aria-current={tab === item.id ? "page" : undefined}
+            onClick={() => setTab(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      {error ? (
+        <div className="auth-error" role="alert">
+          {error}
         </div>
+      ) : null}
+      {notice ? (
+        <p className="success-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
+      {loading ? (
+        <div
+          className="skeleton skeleton-card"
+          aria-label="Cargando administración"
+        />
       ) : (
         <>
-          <div className="stats-grid">
-            {Object.entries(stats || {}).map(([key, value]) => {
-              const label = statLabels[key] || key.replaceAll("_", " ");
-              return (
-                <div className="stat-card" key={key}>
-                  <span>{label}</span>
-                  <strong>{typeof value === "number" && key.includes("recaudacion") ? `$${value.toLocaleString("es-AR")}` : value}</strong>
+          {tab === "resumen" ? (
+            <>
+              <div className="stats-grid focused-stats">
+                <div className="stat-card">
+                  <span>Pagos aprobados</span>
+                  <strong>{formatPrice(approvedRevenue(purchases))}</strong>
+                  <small>Compras confirmadas · total histórico</small>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* 1. Gestión de Usuarios y Asignación de Organizadores */}
-          <section className="dashboard-panel" style={{ marginBottom: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-              <div>
-                <h2 style={{ margin: 0 }}>Gestión de Usuarios y Permisos de Organizador ({users.length})</h2>
-                <p style={{ color: "var(--text-2)", fontSize: "0.85rem", margin: "4px 0 0" }}>
-                  Todas las cuentas nuevas ingresan como Cliente. Desde aquí podés habilitar o revocar el rol de Organizador.
-                </p>
+                <div className="stat-card">
+                  <span>Eventos en venta</span>
+                  <strong>{stats.eventos_publicados ?? "—"}</strong>
+                  <small>De {stats.eventos ?? "—"} eventos creados</small>
+                </div>
+                <div className="stat-card">
+                  <span>Entradas emitidas</span>
+                  <strong>{stats.entradas ?? "—"}</strong>
+                  <small>{purchases.length} compras registradas</small>
+                </div>
+                <div className="stat-card">
+                  <span>Usuarios</span>
+                  <strong>{users.length}</strong>
+                  <small>
+                    {
+                      users.filter((user) => user.rol_usuario === "ORGANIZADOR")
+                        .length
+                    }{" "}
+                    organizadores
+                  </small>
+                </div>
               </div>
-            </div>
-
-            <div className="table-list">
-              {users.map((u) => {
-                const role = u.rol_usuario || "CLIENTE";
-                const isVerified = u.identidad_verificada || u.estado_verificacion === "VERIFICADA";
-                return (
-                  <div
-                    key={u.id_usuario}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: 12
+              <div className="overview-grid">
+                <section className="dashboard-panel">
+                  <div className="panel-heading">
+                    <h2>Últimas compras</h2>
+                    <button
+                      type="button"
+                      className="text-link"
+                      onClick={() => setTab("ventas")}
+                    >
+                      Ver ventas ↗
+                    </button>
+                  </div>
+                  <div className="summary-list">
+                    {latest.map((order) => (
+                      <div key={order.id}>
+                        <span>
+                          <strong>{order.evento_titulo}</strong>
+                          <small>
+                            {formatDateTime(order.fecha_compra)} ·{" "}
+                            {order.cantidad} entrada
+                            {order.cantidad === 1 ? "" : "s"}
+                          </small>
+                        </span>
+                        <strong>{formatPrice(order.total)}</strong>
+                      </div>
+                    ))}
+                    {!latest.length ? (
+                      <p className="empty-inline">
+                        Las compras van a aparecer acá.
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
+                <section className="dashboard-panel attention-panel">
+                  <p className="section-eyebrow">Para revisar</p>
+                  <h2>
+                    {needsReview.length + pendingReceipts.length
+                      ? "Hay tareas pendientes"
+                      : "Sin alertas registradas"}
+                  </h2>
+                  <button
+                    className="attention-link"
+                    type="button"
+                    onClick={() => {
+                      setAuditFilters({
+                        search: "",
+                        from: "",
+                        to: "",
+                        sort: "desc",
+                        status: "INCIDENCIAS",
+                      });
+                      setAuditPage(1);
+                      setTab("auditoria");
                     }}
                   >
-                    <div>
-                      <strong>
-                        {u.nombre_usuario} {u.apellido_usuario}
-                      </strong>
-                      <span>
-                        {u.email_usuario} · DNI: <strong>{u.dni_usuario || "No informado"}</strong>
+                    <span>
+                      Operaciones bloqueadas o rechazadas
+                      <small>Entre las últimas 50 actividades</small>
+                    </span>
+                    <strong>{needsReview.length} ↗</strong>
+                  </button>
+                  <button
+                    className="attention-link"
+                    type="button"
+                    onClick={() => setTab("ventas")}
+                  >
+                    <span>
+                      Comprobantes pendientes
+                      <small>Estado de envío registrado en demo</small>
+                    </span>
+                    <strong>{pendingReceipts.length} ↗</strong>
+                  </button>
+                  <p className="quiet-note">
+                    El envío por correo todavía es simulado. Los estados de esta
+                    demo no confirman una entrega en Gmail.
+                  </p>
+                </section>
+              </div>
+              <div className="workspace-shortcuts">
+                <button type="button" onClick={() => setTab("usuarios")}>
+                  <span>01</span>
+                  <strong>Gestionar usuarios</strong>
+                  <small>Permisos de organizador ↗</small>
+                </button>
+                <button type="button" onClick={() => setTab("catalogos")}>
+                  <span>02</span>
+                  <strong>Consultar catálogos</strong>
+                  <small>
+                    {categories.length} categorías · {locations.length} recintos
+                    ↗
+                  </small>
+                </button>
+                <button type="button" onClick={() => setTab("auditoria")}>
+                  <span>03</span>
+                  <strong>Revisar actividad</strong>
+                  <small>Trazabilidad de operaciones ↗</small>
+                </button>
+              </div>
+            </>
+          ) : null}
+          {tab === "usuarios" ? (
+            <section className="dashboard-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Personas y permisos</h2>
+                  <p>
+                    Revisá los permisos de cada cuenta y habilitá organizadores
+                    cuando corresponda.
+                  </p>
+                </div>
+                <span className="count-label">
+                  {filteredUsers.length} usuarios
+                </span>
+              </div>
+              <div className="record-filters">
+                <label className="filter-search">
+                  Buscar usuario
+                  <input
+                    type="search"
+                    placeholder="Nombre, email o DNI"
+                    value={userSearch}
+                    onChange={(e) => {
+                      setUserSearch(e.target.value);
+                      setUserPage(1);
+                    }}
+                  />
+                </label>
+                <label>
+                  Rol
+                  <select
+                    value={userRole}
+                    onChange={(e) => {
+                      setUserRole(e.target.value);
+                      setUserPage(1);
+                    }}
+                  >
+                    <option value="">Todos los roles</option>
+                    <option>CLIENTE</option>
+                    <option>ORGANIZADOR</option>
+                    <option>ADMIN</option>
+                  </select>
+                </label>
+              </div>
+              <div className="user-list">
+                {filteredUsers
+                  .slice((visibleUserPage - 1) * 8, visibleUserPage * 8)
+                  .map((user) => (
+                    <div className="user-row" key={user.id_usuario}>
+                      <span className="user-avatar" aria-hidden="true">
+                        {user.nombre_usuario?.[0]}
                       </span>
-                      <small style={{ color: "var(--text-3)", display: "block" }}>
-                        Estado KYC: {isVerified ? "✓ VERIFICADA (RENAPER)" : "PENDIENTE"} · Cuenta: {u.estado_usuario}
-                      </small>
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span
-                        className={`badge-status ${
-                          role === "ADMIN" ? "badge-danger" : role === "ORGANIZADOR" ? "badge-info" : "badge-success"
-                        }`}
-                      >
-                        {role}
+                      <span className="record-main">
+                        <strong>
+                          {user.nombre_usuario} {user.apellido_usuario}
+                        </strong>
+                        <small>{user.email_usuario}</small>
                       </span>
-
-                      {role !== "ADMIN" ? (
+                      <span className="user-verification">
+                        {user.identidad_verificada ||
+                        user.estado_verificacion === "VERIFICADA"
+                          ? "Identidad verificada"
+                          : "Identidad pendiente"}
+                        <small>{user.estado_usuario?.toLowerCase()}</small>
+                      </span>
+                      <StatusBadge status={user.rol_usuario} />
+                      {user.rol_usuario !== "ADMIN" ? (
                         <button
                           type="button"
                           className="btn-copy"
-                          onClick={() => handleToggleOrganizer(u)}
-                          disabled={roleUpdatingId === u.id_usuario}
+                          disabled={roleUpdatingId !== null}
+                          onClick={() => handleToggleOrganizer(user)}
                         >
-                          {roleUpdatingId === u.id_usuario
-                            ? "Actualizando..."
-                            : role === "ORGANIZADOR"
-                            ? "Pasar a Cliente"
-                            : "Habilitar como Organizador"}
+                          {roleUpdatingId === user.id_usuario
+                            ? "Guardando…"
+                            : user.rol_usuario === "ORGANIZADOR"
+                              ? "Pasar a cliente"
+                              : "Habilitar organizador"}
                         </button>
-                      ) : null}
+                      ) : (
+                        <span className="quiet-note">
+                          Cuenta administradora
+                        </span>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* 2. Auditoría Técnica de Cruce de Compras, Pasarela (PCI-DSS) y Firma SHA-256 */}
-          <section className="dashboard-panel" style={{ marginBottom: 24 }}>
-            <div style={{ marginBottom: 14 }}>
-              <h2 style={{ margin: 0 }}>Auditoría de Transacciones, Pasarela PCI-DSS y Cruce SHA-256 ({purchases.length})</h2>
-              <p style={{ color: "var(--text-2)", fontSize: "0.85rem", margin: "4px 0 0" }}>
-                Información técnica reservada al Administrador: referencias externas de pasarela, últimos 4 dígitos tokenizados, envío de comprobantes y hash criptográfico de cruce.
+                  ))}
+              </div>
+              {!filteredUsers.length ? (
+                <p className="empty-state">No se encontraron usuarios.</p>
+              ) : null}
+              <Pagination
+                count={filteredUsers.length}
+                page={visibleUserPage}
+                onChange={setUserPage}
+              />
+            </section>
+          ) : null}
+          {tab === "ventas" ? (
+            <section className="dashboard-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Ventas y comprobantes</h2>
+                  <p>
+                    Abrí una compra para ver asistentes y detalles de la
+                    transacción.
+                  </p>
+                </div>
+              </div>
+              <PurchaseList orders={purchases} technical />
+            </section>
+          ) : null}
+          {tab === "catalogos" ? (
+            <CatalogManager
+              categories={categories}
+              locations={locations}
+              onUpdated={loadAll}
+            />
+          ) : null}
+          {tab === "auditoria" ? (
+            <section className="dashboard-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Actividad del sistema</h2>
+                  <p>
+                    Se muestran las últimas 50 operaciones que devuelve la API.
+                    Las fechas filtran esta selección.
+                  </p>
+                </div>
+              </div>
+              <RecordFilters
+                value={auditFilters}
+                onChange={(next) => {
+                  setAuditFilters(next);
+                  setAuditPage(1);
+                }}
+                dateLabel="Actividad"
+                placeholder="Acción o usuario"
+              >
+                <label>
+                  Resultado
+                  <select
+                    value={auditFilters.status}
+                    onChange={(e) => {
+                      setAuditFilters({
+                        ...auditFilters,
+                        status: e.target.value,
+                      });
+                      setAuditPage(1);
+                    }}
+                  >
+                    <option value="">Todos</option>
+                    <option value="INCIDENCIAS">Solo incidencias</option>
+                    <option>EXITOSO</option>
+                    <option>BLOQUEADO</option>
+                    <option>RECHAZADO</option>
+                  </select>
+                </label>
+              </RecordFilters>
+              <p className="results-count" aria-live="polite">
+                {filteredLogs.length} actividades
               </p>
-            </div>
-
-            <div className="table-list">
-              {purchases.map((compra) => (
-                <div key={compra.id} style={{ display: "grid", gap: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                    <div>
-                      <strong>
-                        Compra #{compra.id} · {compra.evento_titulo}
-                      </strong>
-                      <span>
-                        Cliente: {compra.cliente_email} (DNI {compra.cliente_dni || "-"}) · {compra.cantidad} entrada(s) · {formatDate(compra.fecha_compra)}
-                      </span>
-                    </div>
-                    <strong style={{ color: "var(--primary-2)" }}>{formatPrice(compra.total)}</strong>
-                  </div>
-
-                  {compra.pago ? (
-                    <div style={{ fontSize: "0.82rem", color: "var(--text-2)" }}>
-                      <strong>Pasarela:</strong> {compra.pago.pasarela_pago} · <strong>Medio:</strong> {compra.pago.medio_pago} (PCI-DSS:{" "}
-                      <code>****{compra.pago.ultimos_cuatro_digitos}</code>) · <strong>Ref. Externa:</strong>{" "}
-                      <code>{compra.pago.referencia_externa_pago}</code> · <strong>Estado:</strong> {compra.pago.estado_pago}
-                    </div>
-                  ) : null}
-
-                  {compra.comprobante ? (
-                    <div style={{ fontSize: "0.78rem", color: "var(--text-3)", wordBreak: "break-all" }}>
-                      <strong>Comprobante:</strong> {compra.comprobante.numero_comprobante} ({compra.comprobante.tipo_comprobante} ·{" "}
-                      {compra.comprobante.estado_envio_comprobante}) · <strong>Hash SHA-256 de Cruce:</strong>{" "}
-                      <code>{compra.comprobante.hash_cruce_seguridad}</code>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="dashboard-grid">
-            <section className="dashboard-panel">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h2>Categorías del Catálogo ({categories.length})</h2>
+              <div className="activity-list">
+                {filteredLogs
+                  .slice((visibleAuditPage - 1) * 8, visibleAuditPage * 8)
+                  .map((log) => (
+                    <details className="activity-row" key={log.id_auditoria}>
+                      <summary>
+                        <span className="activity-dot" />
+                        <span className="record-main">
+                          <strong>
+                            {log.accion_auditoria
+                              ?.replaceAll("_", " ")
+                              .toLowerCase()}
+                          </strong>
+                          <small>{log.email_usuario || "Sin usuario"}</small>
+                        </span>
+                        <time>{formatDateTime(log.fecha_auditoria)}</time>
+                        <StatusBadge status={log.resultado_auditoria} />
+                        <span className="disclosure-mark" aria-hidden="true">
+                          +
+                        </span>
+                      </summary>
+                      <div className="purchase-detail">
+                        <p>{log.detalle_tracking}</p>
+                        <p className="quiet-note">
+                          {log.entidad_afectada} #
+                          {log.id_registro_afectado ?? "—"} · IP registrada:{" "}
+                          {log.ip_origen || "Sin datos"}
+                        </p>
+                      </div>
+                    </details>
+                  ))}
               </div>
-              <div className="table-list">
-                {categories.map((category) => (
-                  <div key={category.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <strong>{category.nombre}</strong>
-                      <span>{category.descripcion || "Sin descripción"}</span>
-                    </div>
-                    <span className="badge-status badge-info">ID #{category.id}</span>
-                  </div>
-                ))}
-              </div>
+              {!filteredLogs.length ? (
+                <p className="empty-state">
+                  No hay actividad para estos filtros.
+                </p>
+              ) : null}
+              <Pagination
+                count={filteredLogs.length}
+                page={visibleAuditPage}
+                onChange={setAuditPage}
+              />
             </section>
-
-            <section className="dashboard-panel">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h2>Recintos y Ubicaciones ({locations.length})</h2>
-              </div>
-              <div className="table-list">
-                {locations.map((location) => (
-                  <div key={location.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <strong>{location.nombre}</strong>
-                      <span>{location.direccion}</span>
-                      <small style={{ color: "var(--text-3)", display: "block" }}>
-                        Capacidad máxima: {location.capacidadMaxima} espectadores
-                      </small>
-                    </div>
-                    <span className={`badge-status ${location.activo ? "badge-success" : "badge-danger"}`}>
-                      {location.activo ? "Activa" : "Inactiva"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <section className="dashboard-panel" style={{ marginTop: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h2>Bitácora de Tracking y Seguridad Informática ({auditLogs.length})</h2>
-            </div>
-            <div className="table-list">
-              {auditLogs.map((log) => (
-                <div key={log.id_auditoria} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                  <div>
-                    <strong>{log.accion_auditoria} · {log.entidad_afectada} #{log.id_registro_afectado ?? "-"}</strong>
-                    <span>{log.detalle_tracking}</span>
-                    <small style={{ color: "var(--text-3)", display: "block" }}>
-                      Usuario: {log.email_usuario || "Anónimo"} · IP: {log.ip_origen || "127.0.0.1"} · {formatDate(log.fecha_auditoria)}
-                    </small>
-                  </div>
-                  <span className={`badge-status ${log.resultado_auditoria === "EXITOSO" ? "badge-success" : "badge-danger"}`}>
-                    {log.resultado_auditoria}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
+          ) : null}
         </>
       )}
     </section>
   );
 }
-
 export default AdminDashboard;
-

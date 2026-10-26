@@ -25,6 +25,12 @@ public class NotificacionDTO {
     @JsonProperty("evento_id")
     private Long eventoId;
 
+    @JsonProperty("compra_id")
+    private Long compraId;
+
+    @JsonProperty("estado_envio")
+    private String estadoEnvio;
+
     @NotBlank
     private String mensaje;
 

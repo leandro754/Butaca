@@ -1,29 +1,12 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Button from "../components/ui/Button";
 import { getSelectedOrder } from "../utils/storage";
 import { formatPrice } from "../utils/formatters";
 import TicketPass from "../components/events/TicketPass";
-import { verifyPurchaseCrossCheck } from "../services/orderService";
 
 function ConfirmationPage() {
   const order = getSelectedOrder();
   const confirmation = order?.confirmation;
-  const compraId = confirmation?.idCompra || confirmation?.raw?.id;
-  const [cruce, setCruce] = useState(null);
-
-  useEffect(() => {
-    if (!compraId) return undefined;
-    let activo = true;
-    verifyPurchaseCrossCheck(compraId)
-      .then((resultado) => {
-        if (activo) setCruce(resultado);
-      })
-      .catch(() => {});
-    return () => {
-      activo = false;
-    };
-  }, [compraId]);
 
   if (!order || !confirmation) {
     return (
@@ -40,21 +23,23 @@ function ConfirmationPage() {
 
   const entradas = confirmation.entradas || [];
   const pago = confirmation.pago || confirmation.raw?.pago || null;
-  const comprobante = confirmation.comprobante || confirmation.raw?.comprobante || null;
-  const compradorEmail = confirmation.comprador?.email || order.comprador?.email || "tu correo";
+  const comprobante =
+    confirmation.comprobante || confirmation.raw?.comprobante || null;
   const compradorNombre = confirmation.comprador?.nombre || "Cliente";
 
   const medioLegible =
     pago?.medio_pago === "TARJETA_CREDITO"
       ? `Tarjeta terminada en ${pago?.ultimos_cuatro_digitos || "4242"}`
       : pago?.medio_pago === "TARJETA_DEBITO"
-      ? `Débito terminada en ${pago?.ultimos_cuatro_digitos || "4242"}`
-      : pago?.pasarela_pago || "Billetera virtual";
+        ? `Débito terminada en ${pago?.ultimos_cuatro_digitos || "4242"}`
+        : pago?.pasarela_pago || "Billetera virtual";
 
   return (
     <section className="container page-block confirmation-page">
       <div className="confirmation-card">
-        <p className="section-eyebrow" style={{ color: "var(--accent)" }}>Compra confirmada</p>
+        <p className="section-eyebrow" style={{ color: "var(--accent)" }}>
+          Compra confirmada
+        </p>
         <h1>¡Listo! Ya tenés tus entradas</h1>
 
         <div
@@ -68,13 +53,13 @@ function ConfirmationPage() {
             textAlign: "left",
             fontSize: "0.92rem",
             color: "var(--text)",
-            lineHeight: 1.6
+            lineHeight: 1.6,
           }}
         >
-          <strong>Tu comprobante y tus entradas quedaron registrados en tu cuenta.</strong>
+          <strong>Tus entradas ya están disponibles para descargar.</strong>
           <div style={{ color: "var(--text-2)", marginTop: 4 }}>
-            Comprobante N°{" "}
-            <strong>{comprobante?.numero_comprobante || "RECIBO"}</strong> asociado a <strong>{compradorEmail}</strong>.
+            Podés volver a verlas desde Mis entradas. Tu comprobante es{" "}
+            <strong>{comprobante?.numero_comprobante || "RECIBO"}</strong>.
             Recordá llevar tu DNI físico el día del evento para el ingreso.
           </div>
         </div>
@@ -94,18 +79,16 @@ function ConfirmationPage() {
           </div>
           <div>
             <span>Total abonado</span>
-            <strong style={{ color: "var(--primary-2)" }}>{formatPrice(pago?.monto ?? order.total)}</strong>
-          </div>
-          <div>
-            <span>Cruce de seguridad</span>
-            <strong style={{ color: cruce?.valida ? "var(--accent)" : "var(--text-2)" }}>
-              {cruce ? (cruce.valida ? "Verificado" : "Revisar") : "Verificando..."}
+            <strong style={{ color: "var(--primary-2)" }}>
+              {formatPrice(order.total)}
             </strong>
           </div>
         </div>
 
         <div style={{ margin: "32px 0", textAlign: "left" }}>
-          <h3 style={{ fontSize: "1.15rem", marginBottom: 16 }}>Tus entradas digitales</h3>
+          <h3 style={{ fontSize: "1.15rem", marginBottom: 16 }}>
+            Tus entradas digitales
+          </h3>
           {entradas.length ? (
             entradas.map((entrada, idx) => (
               <TicketPass
@@ -120,7 +103,10 @@ function ConfirmationPage() {
             ))
           ) : (
             <TicketPass
-              ticket={{ id: confirmation.codigoReserva || "TICKET-1", precio_pagado: order.total }}
+              ticket={{
+                id: confirmation.codigoReserva || "TICKET-1",
+                precio_pagado: order.total,
+              }}
               eventTitle={order.event.nombre}
               venue={order.event.recinto || order.event.ciudad}
               date={order.event.fecha}
@@ -130,7 +116,10 @@ function ConfirmationPage() {
           )}
         </div>
 
-        <div className="hero-actions" style={{ justifyContent: "center", gap: 14 }}>
+        <div
+          className="hero-actions"
+          style={{ justifyContent: "center", gap: 14 }}
+        >
           <Link to="/dashboard">
             <Button>Ir a Mis Entradas</Button>
           </Link>
@@ -144,4 +133,3 @@ function ConfirmationPage() {
 }
 
 export default ConfirmationPage;
-

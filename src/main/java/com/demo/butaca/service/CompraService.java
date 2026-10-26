@@ -29,6 +29,8 @@ import com.demo.butaca.model.Pago;
 import com.demo.butaca.model.PasarelaPago;
 import com.demo.butaca.model.TipoComprobante;
 import com.demo.butaca.model.Usuario;
+import com.demo.butaca.model.Persona;
+import com.demo.butaca.model.TipoEntrada;
 import com.demo.butaca.model.VerificacionIdentidad;
 import com.demo.butaca.repository.CompraRepository;
 import com.demo.butaca.repository.ComprobanteRepository;
@@ -37,6 +39,7 @@ import com.demo.butaca.repository.EventoRepository;
 import com.demo.butaca.repository.HistorialEstadoEntradaRepository;
 import com.demo.butaca.repository.PagoRepository;
 import com.demo.butaca.repository.UsuarioRepository;
+import com.demo.butaca.repository.PersonaRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
 import com.demo.butaca.util.CruceHashUtils;
 import org.springframework.stereotype.Service;
@@ -64,6 +67,7 @@ public class CompraService {
     private final CompraRepository compraRepository;
     private final EventoRepository eventoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PersonaRepository personaRepository;
     private final EntradaRepository entradaRepository;
     private final HistorialEstadoEntradaRepository historialRepository;
     private final VerificacionIdentidadRepository verificacionRepository;
@@ -77,6 +81,7 @@ public class CompraService {
     public CompraService(CompraRepository compraRepository,
                          EventoRepository eventoRepository,
                          UsuarioRepository usuarioRepository,
+                         PersonaRepository personaRepository,
                          EntradaRepository entradaRepository,
                          HistorialEstadoEntradaRepository historialRepository,
                          VerificacionIdentidadRepository verificacionRepository,
@@ -89,6 +94,7 @@ public class CompraService {
         this.compraRepository = compraRepository;
         this.eventoRepository = eventoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.personaRepository = personaRepository;
         this.entradaRepository = entradaRepository;
         this.historialRepository = historialRepository;
         this.verificacionRepository = verificacionRepository;
@@ -165,12 +171,19 @@ public class CompraService {
             auditarBloqueo(cliente, "Compra rechazada: " + ex.getMessage());
             throw ex;
         }
-        BigDecimal total = evento.getPrecioEntradaEvento().multiply(BigDecimal.valueOf(cantidad));
+        TipoEntrada tipoEntrada = request.getTipoEntradaId() == null ? evento.obtenerTipoEntradaPrincipal()
+                : evento.getTiposEntrada().stream()
+                .filter(tipo -> request.getTipoEntradaId().equals(tipo.getIdTipoEntrada()) && Boolean.TRUE.equals(tipo.getActivoTipoEntrada()))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("El tipo de entrada no está disponible para este evento"));
+        if (tipoEntrada == null) throw new IllegalStateException("El evento no tiene entradas activas");
+        BigDecimal precioUnitario = tipoEntrada.getPrecioTipoEntrada();
+        BigDecimal total = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
         LocalDateTime fechaCompra = LocalDateTime.now().withNano(0);
 
         Compra compra = compraRepository.save(Compra.builder()
                 .fechaCompra(fechaCompra)
                 .estadoCompra(EstadoCompra.PENDIENTE)
+                .monedaCompra("ARS")
                 .cliente(cliente)
                 .build());
 
@@ -229,9 +242,12 @@ public class CompraService {
                 .estadoPago(EstadoPago.APROBADO)
                 .referenciaExternaPago(resultadoPago.referenciaExterna())
                 .ultimosCuatroDigitos(ultimosCuatro)
-                .monto(total)
-                .moneda("ARS")
-                .codigoAutorizacion(resultadoPago.codigoAutorizacion())
+                .montoPago(total)
+                .monedaPago("ARS")
+                .fechaCreacionPago(fechaCompra)
+                .fechaConfirmacionPago(fechaCompra)
+                .respuestaProveedorPago("medio=" + medio.name() + "|last4=" + ultimosCuatro
+                        + "|auth=" + resultadoPago.codigoAutorizacion())
                 .fechaPago(fechaCompra)
                 .build());
 
@@ -239,7 +255,10 @@ public class CompraService {
                 .map(asistente -> Entrada.builder()
                         .codigoUnicoEntrada(UUID.randomUUID())
                         .estadoEntrada(EstadoEntrada.CONFIRMADA)
-                        .precioPagado(evento.getPrecioEntradaEvento())
+                        .precioPagado(precioUnitario)
+                        .monedaEntrada("ARS")
+                        .tipoEntrada(tipoEntrada)
+                        .personaTitular(resolverPersonaTitular(asistente.dni(), asistente.nombre(), cliente.getEmailUsuario()))
                         .fechaEmision(fechaCompra)
                         .evento(evento)
                         .cliente(cliente)
@@ -262,7 +281,7 @@ public class CompraService {
                 .numeroComprobante(numeroComprobante)
                 .tipoComprobante(parsearTipoComprobante(request.getTipoComprobante()))
                 .hashCruceSeguridad(hashCruceSha256)
-                .estadoEnvioComprobante(EstadoEnvio.ENVIADO)
+                .estadoEnvioComprobante(EstadoEnvio.PENDIENTE)
                 .fechaEmisionComprobante(fechaCompra)
                 .build());
 
@@ -278,7 +297,7 @@ public class CompraService {
                 .toList();
         historialRepository.saveAll(historial);
 
-        registrarNotificacionCruceCompra(compra, evento, pago, comprobante, total);
+        registrarNotificacionCruceCompra(compra, evento, pago, comprobante);
 
         auditoriaService.registrarEvento(
                 cliente,
@@ -294,6 +313,23 @@ public class CompraService {
         );
 
         return toDTO(compra, pago, comprobante);
+    }
+
+    private Persona resolverPersonaTitular(String dniStr, String nombreCompleto, String emailDefault) {
+        String digitos = dniStr == null ? "" : dniStr.replaceAll("\\D", "");
+        Long dniLong = digitos.isEmpty() ? Math.abs(UUID.randomUUID().getMostSignificantBits() % 90000000L) + 10000000L : Long.parseLong(digitos);
+        return personaRepository.findByDniPersona(dniLong).orElseGet(() -> {
+            String limpio = nombreCompleto == null || nombreCompleto.isBlank() ? "Titular Nominal" : nombreCompleto.trim();
+            int espacio = limpio.indexOf(' ');
+            String nombre = espacio > 0 ? limpio.substring(0, espacio).trim() : limpio;
+            String apellido = espacio > 0 ? limpio.substring(espacio + 1).trim() : "Titular";
+            return personaRepository.save(Persona.builder()
+                    .dniPersona(dniLong)
+                    .nombrePersona(nombre)
+                    .apellidoPersona(apellido)
+                    .emailPersona(emailDefault)
+                    .build());
+        });
     }
 
     @Transactional(readOnly = true)
@@ -333,7 +369,7 @@ public class CompraService {
     public VerificacionCruceDTO verificarCruce(Long compraId) {
         Compra compra = compraRepository.findById(compraId)
                 .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada"));
-        Pago pago = pagoRepository.findFirstByCompraIdOrderByFechaPagoDesc(compraId).orElse(null);
+        Pago pago = pagoRepository.findFirstByCompraIdOrderByFechaCreacionPagoDesc(compraId).orElse(null);
         Comprobante comprobante = pago == null ? null : comprobanteRepository.findByPagoIdPago(pago.getIdPago()).orElse(null);
         VerificacionIdentidad verificacion = verificacionRepository
                 .findByUsuarioIdUsuario(compra.getCliente().getIdUsuario()).orElse(null);
@@ -424,18 +460,16 @@ public class CompraService {
         return validados;
     }
 
-    private void registrarNotificacionCruceCompra(Compra compra, Evento evento, Pago pago,
-                                                  Comprobante comprobante, BigDecimal total) {
+    private void registrarNotificacionCruceCompra(Compra compra, Evento evento, Pago pago, Comprobante comprobante) {
         notificacionService.crearNotificacion(NotificacionDTO.builder()
                 .usuarioId(compra.getCliente().getIdUsuario())
+                .compraId(compra.getId())
                 .eventoId(evento.getIdEvento())
                 .mensaje("Compra confirmada para " + evento.getTituloEvento()
-                        + " por $" + total.toPlainString()
                         + ". Comprobante " + comprobante.getNumeroComprobante()
-                        + " (Pago " + pago.getReferenciaExternaPago() + ") y entradas nominales enviadas a "
-                        + compra.getCliente().getEmailUsuario())
+                        + ". Tus entradas nominales ya están disponibles. El envío por correo está pendiente.")
                 .tipo("COMPROBANTE")
-                .fechaEnvio(LocalDateTime.now().withNano(0))
+                .fechaEnvio(LocalDateTime.now())
                 .build());
     }
 
@@ -458,7 +492,7 @@ public class CompraService {
     }
 
     public CompraResponseDTO toDTO(Compra compra) {
-        Pago pago = pagoRepository.findFirstByCompraIdOrderByFechaPagoDesc(compra.getId()).orElse(null);
+        Pago pago = pagoRepository.findFirstByCompraIdOrderByFechaCreacionPagoDesc(compra.getId()).orElse(null);
         Comprobante comprobante = pago == null ? null : comprobanteRepository.findByPagoIdPago(pago.getIdPago()).orElse(null);
         return toDTO(compra, pago, comprobante);
     }

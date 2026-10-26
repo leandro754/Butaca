@@ -1,6 +1,6 @@
 # API REST
 
-Base: `http://localhost:8080/api`. Los DTO usan `snake_case`. El acceso es de demo; no hay sesiones ni tokens del servidor.
+Base: `http://localhost:8081/api`. Los DTO usan `snake_case`. El acceso es de demo; no hay sesiones ni tokens del servidor.
 
 ## Autenticación
 
@@ -47,6 +47,7 @@ Ejemplo de request de compra:
 {
   "evento_id": 1,
   "usuario_id": 2,
+  "tipo_entrada_id": 1,
   "email_usuario": "cliente@butaca.com",
   "dni_usuario": "42850123",
   "cantidad": 2,
@@ -93,3 +94,7 @@ Ejemplo de request de compra:
 - `GET /api/notificaciones/usuario/{id}`
 - `GET /api/notificaciones/evento/{eventoId}`
 - `PUT /api/notificaciones/{id}/leida`
+
+## Contratos de eventos de la version integrada
+
+La edicion acepta `version` y `tipos_entrada`. La cancelacion requiere JSON con `confirmar_reembolsos`, `titulo_confirmacion` y `version`. Consultar los nombres exactos de estos campos en los DTO y la guia de correo y eventos. Las consultas de notificaciones se marcan con `PUT /api/notificaciones/{id}/leida`.

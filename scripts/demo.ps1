@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$Dev,
-    [ValidateRange(1, 65535)][int]$BackendPort = 8080,
+    [ValidateRange(1, 65535)][int]$BackendPort = 8081,
     [ValidateRange(1, 65535)][int]$FrontendPort = 5173
 )
 
@@ -77,9 +77,14 @@ New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 
 $previousApiUrl = $env:VITE_API_BASE_URL
 $previousBackendUrl = $env:BUTACA_BACKEND_URL
+$previousPublicUrl = $env:BUTACA_PUBLIC_URL
 $backendProcess = $null
 $frontendProcess = $null
 try {
+    if (-not $env:BUTACA_PUBLIC_URL) {
+        $publicPort = if ($Dev) { $FrontendPort } else { $BackendPort }
+        $env:BUTACA_PUBLIC_URL = "http://localhost:$publicPort"
+    }
     Write-Host "Iniciando backend... Logs: $logDirectory"
     $backendProcess = Start-Process -FilePath $mavenWrapper `
         -ArgumentList @('spring-boot:run', '-Dspring-boot.run.profiles=demo', "-Dspring-boot.run.arguments=--server.port=$BackendPort") `
@@ -118,4 +123,5 @@ finally {
     if ($backendProcess) { Stop-ProcessTree $backendProcess.Id $processes }
     $env:VITE_API_BASE_URL = $previousApiUrl
     $env:BUTACA_BACKEND_URL = $previousBackendUrl
+    $env:BUTACA_PUBLIC_URL = $previousPublicUrl
 }

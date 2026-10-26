@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="velvet" x1="0" x2="1" y1="0" y2="0">
+      <stop stop-color="#30030f"/><stop offset=".13" stop-color="#650b20"/><stop offset=".34" stop-color="#99172d"/><stop offset=".52" stop-color="#b5243d"/><stop offset=".68" stop-color="#8d142a"/><stop offset=".86" stop-color="#4b0618"/><stop offset="1" stop-color="#26020e"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" x2="1">
+      <stop stop-color="#21020d"/><stop offset=".12" stop-color="#470619"/><stop offset=".3" stop-color="#831126"/><stop offset=".5" stop-color="#ba2c43"/><stop offset=".6" stop-color="#c83a4e"/><stop offset=".73" stop-color="#a51d34"/><stop offset=".89" stop-color="#650b22"/><stop offset="1" stop-color="#340411"/>
+    </linearGradient>
+    <linearGradient id="light" x1=".2" y1="0" x2=".8" y2="1">
+      <stop stop-color="#f5a187" stop-opacity=".12"/><stop offset=".28" stop-color="#b02a3f" stop-opacity="0"/><stop offset=".75" stop-color="#10000a" stop-opacity=".1"/><stop offset="1" stop-color="#10000a" stop-opacity=".5"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" x2="0" y1="0" y2="1">
+      <stop stop-color="#100009" stop-opacity=".8"/><stop offset=".07" stop-color="#19000c" stop-opacity=".25"/><stop offset=".23" stop-color="#19000c" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="weave" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M0 .5H5M.5 0V5" stroke="#f4c8b1" stroke-opacity=".045" stroke-width=".6"/><path d="M0 3H5M3 0V5" stroke="#16000a" stroke-opacity=".12" stroke-width=".65"/></pattern>
+    <filter id="nap" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".45 .16" numOctaves="3" seed="7" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".075"/></feComponentTransfer><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <g filter="url(#nap)">
+    <path fill="url(#velvet)" d="M0 0H800V1200H0z"/>
+    <path fill="url(#fold)" d="M-40 0H83C58 230 90 560 102 1200H-36C-15 830 6 420-40 0Z"/>
+    <path fill="url(#fold)" d="M76 0H207C184 260 224 600 245 1200H98C111 850 82 280 76 0Z"/>
+    <path fill="url(#fold)" d="M199 0H331C308 235 340 690 367 1200H238C238 810 201 400 199 0Z"/>
+    <path fill="url(#fold)" d="M325 0H456C440 260 464 710 489 1200H360C374 815 333 330 325 0Z"/>
+    <path fill="url(#fold)" d="M448 0H574C563 280 587 670 608 1200H482C497 790 461 300 448 0Z"/>
+    <path fill="url(#fold)" d="M566 0H695C678 235 701 680 728 1200H601C613 770 574 280 566 0Z"/>
+    <path fill="url(#fold)" d="M687 0H822C800 250 823 700 850 1200H721C737 800 702 320 687 0Z"/>
+    <path d="M70 0C90 300 88 720 101 1200M194 0C207 315 226 810 239 1200M322 0C337 370 360 900 362 1200M446 0C467 350 487 830 484 1200M564 0C585 360 606 870 604 1200M687 0C703 315 726 830 723 1200" fill="none" stroke="#1d020d" stroke-width="8" opacity=".22"/>
+    <path fill="url(#light)" d="M0 0H800V1200H0z"/>
+    <path fill="url(#weave)" d="M0 0H800V1200H0z"/>
+    <path fill="url(#top)" d="M0 0H800V1200H0z"/>
+    <path d="M0 1165Q65 1192 125 1174T250 1180T375 1182T500 1180T625 1178T800 1170" fill="none" stroke="#23020d" stroke-width="12" opacity=".35"/>
+  </g>
+</svg>

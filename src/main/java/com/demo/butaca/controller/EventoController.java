@@ -2,6 +2,7 @@ package com.demo.butaca.controller;
 
 import com.demo.butaca.dto.EntradaResponseDTO;
 import com.demo.butaca.dto.EventoRequestDTO;
+import com.demo.butaca.dto.CancelarEventoRequest;
 import com.demo.butaca.dto.EventoResponseDTO;
 import com.demo.butaca.service.EntradaService;
 import com.demo.butaca.service.EventoService;
@@ -73,8 +74,8 @@ public class EventoController {
     }
 
     @PutMapping("/{id}/cancelar")
-    public void cancelarEvento(@PathVariable Long id) {
-        eventoService.cancelarEvento(id);
+    public void cancelarEvento(@PathVariable Long id, @Valid @RequestBody CancelarEventoRequest request) {
+        eventoService.cancelarEvento(id, request);
     }
 
 }

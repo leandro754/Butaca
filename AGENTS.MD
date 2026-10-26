@@ -23,27 +23,28 @@ Butaca es una plataforma academica de gestion y venta simulada de entradas para 
 
 ## Modelo De Datos
 
-El modelo normalizado vigente en 3FN usa estas 13 entidades:
+El modelo normalizado vigente en 3FN sincronizado con DrawDB (`butaca-modelado-datos`) usa estas 16 entidades en 5 módulos:
 
 - `rol`: catalogo de roles (`ADMIN`, `ORGANIZADOR`, `CLIENTE`).
-- `usuario`: credenciales, DNI unico, datos personales, estado de cuenta y rol.
-- `verificacion_identidad`: validacion KYC obligatoria antes de comprar (`VERIFICADA`), vinculada a `usuario` sin duplicar DNI ni nombre; guarda hashes SHA-256 de las evidencias, proveedor y puntaje, nunca las fotos.
-- `ubicacion`: lugares fisicos con direccion, capacidad maxima y estado activo.
+- `persona`: identidad real con `dni_persona` unico, nombre, apellido, email y telefono de contacto.
+- `usuario`: credenciales, estado de cuenta, vinculo a `persona` y `rol`.
+- `verificacion_identidad`: validacion KYC obligatoria antes de comprar (`VERIFICADA`), vinculada 1:1 a `usuario` sin duplicar DNI ni nombre.
+- `ubicacion`: lugares fisicos con direccion, capacidad maxima (`capacidad_maxima_ubicacion`) y estado activo.
 - `categoria`: clasificacion de eventos.
-- `evento`: publicacion, cupo total, precio, categoria, ubicacion y organizador.
-- `compra`: cabecera minima con cliente verificado, fecha y estado.
-- `pago`: transaccion de pasarela desacoplada con referencia externa, ultimos 4 digitos, monto autorizado por la pasarela, moneda y codigo de autorizacion; sin PAN ni CVV. El monto autorizado es un hecho externo que se cruza con la suma de entradas, no un total calculado duplicado.
-- `comprobante`: recibo/factura vinculada a `pago` con firma SHA-256 de cruce de informacion y estado de envio digital.
-- `entrada`: tickets nominales emitidos con UUID unico, DNI/nombre del asistente y precio historico.
+- `evento`: publicacion, cupo total, categoria, ubicacion, organizador y `version_evento` (`@Version`).
+- `tipo_entrada`: tarifas configuradas por evento (`nombre_tipo_entrada`, `precio_tipo_entrada`, `moneda_tipo_entrada`, `activo_tipo_entrada`).
+- `compra`: cabecera minima con cliente comprador (`id_usuario_comprador`), fecha, estado y moneda.
+- `entrada`: tickets nominales emitidos con UUID unico, vinculo a `evento`, `tipo_entrada`, `persona` titular (`id_persona_titular`), `compra`, precio historico y `version_entrada`.
 - `historial_estado_entrada`: trazabilidad de emision, uso nominal en puerta y anulacion.
-- `notificacion`: mensajes internos del sistema.
+- `pago`: transaccion de pasarela desacoplada (`proveedor_pago`, `referencia_externa_pago`, `monto_pago`, `moneda_pago`, `estado_pago`).
+- `reembolso`: devoluciones totales o parciales asociadas a un `pago`.
+- `comprobante`: recibo/factura vinculada 1:1 a `pago` con firma SHA-256 de cruce de informacion y estado de envio digital.
+- `notificacion`: mensajes internos del sistema con estado de envio y lectura (`leida_notificacion`).
 - `auditoria_seguridad`: bitacora append-only de tracking de seguridad e informatica.
 
 No volver a guardar datos de ubicacion como texto duplicado en `evento` si ya
 existe `id_ubicacion`. No reintroducir `cupos_disponibles`, `cantidad`,
 `total` ni `id_evento` en `compra` o `pago`: esos valores se obtienen desde `entrada`.
-La unica excepcion es `pago.monto_pago`, que registra el importe efectivamente
-autorizado por la pasarela para poder cruzarlo contra la suma de entradas.
 No duplicar `id_compra` ni `id_cliente` en `comprobante` (se obtienen desde `id_pago`).
 
 ## Backend
@@ -89,7 +90,7 @@ pnpm run build
 
 ## Dependencias
 
-- Backend: Java 17, Spring Boot, Spring Web MVC, Spring Data JPA, Validation, PostgreSQL, BCrypt, Lombok.
+- Backend: Java 17, Spring Boot, Spring Web MVC, Spring Data JPA, Validation, PostgreSQL, BCrypt, Lombok, Spring Mail (SMTP) y ZXing Core (QR de adjuntos).
 - Demo local: perfil `demo` con H2 en memoria y datos semilla de `DataLoader`.
 - Frontend: React, Vite, React Router DOM, gestionados con `pnpm`.
 - No agregar dependencias para resolver problemas que pueden resolverse con APIs nativas o codigo existente.
@@ -101,7 +102,7 @@ pnpm run build
 - No versionar ni recrear carpetas de otros editores o agentes: `.idea/`, `.opencode/`, `.agents/`, `.codex/`.
 - No versionar salidas generadas: `frontend/dist/`, `target/`, `node_modules/`.
 - No versionar bundles en `src/main/resources/static/`. El build de Vite se genera en `frontend/dist/` y Maven lo incorpora como recursos bajo `static/`.
-- Los lanzadores `iniciar-windows.bat` e `iniciar-mac.command` delegan en `scripts/demo.ps1` y `scripts/demo.sh`. El modo predeterminado compila y sirve la demo en 8080; `-Dev`/`--dev` agrega Vite. Mantener ambos modos documentados y verificar puertos sin cambiarlos silenciosamente.
+- Los lanzadores `iniciar-windows.bat` e `iniciar-mac.command` delegan en `scripts/demo.ps1` y `scripts/demo.sh`; `-Dev`/`--dev` agrega Vite. El backend usa 8081 por defecto; los puertos se eligen explicitamente.
 - Si se necesita limpiar el workspace, eliminar artefactos generados y luego reinstalar dependencias con `pnpm install`.
 
 ## Documentacion

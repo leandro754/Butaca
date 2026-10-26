@@ -1,39 +1,56 @@
 import { Link } from "react-router-dom";
-import { formatDate, formatPrice } from "../../utils/formatters";
+import { dateParts, formatDate, formatPrice } from "../../utils/formatters";
 
-function EventCard({ event }) {
-  const isLowStock = event.disponibilidad > 0 && event.disponibilidad <= 50;
-
+function EventCard({ event, entranceDelay = 0 }) {
+  const parts = dateParts(event.fecha);
   return (
-    <article className="event-card">
-      <Link to={`/eventos/${event.id}`} style={{ display: "block", overflow: "hidden" }}>
-        <img src={event.imagen} alt={event.nombre} className="event-card-image" loading="lazy" />
+    <article
+      className="event-card"
+      style={{ "--card-delay": `${entranceDelay}ms` }}
+    >
+      <Link
+        to={`/eventos/${event.id}`}
+        className="event-poster"
+        aria-label={`Ver entradas para ${event.nombre}`}
+      >
+        <img
+          src={event.imagen}
+          alt=""
+          className="event-card-image"
+          loading="lazy"
+        />
+        <span className="poster-category">{event.categoria}</span>
+        <span className="poster-arrow" aria-hidden="true">
+          ↗
+        </span>
       </Link>
       <div className="event-card-body">
-        <div className="event-card-top">
-          <span className="event-tag">{event.categoria}</span>
-          <span
-            className="event-availability"
-            style={{
-              borderColor: isLowStock ? "rgba(245,158,11,0.4)" : "var(--border)",
-              color: isLowStock ? "#fbbf24" : "var(--text-2)"
-            }}
-          >
-            {isLowStock ? `Últimos ${event.disponibilidad} cupos` : `${event.disponibilidad} disponibles`}
-          </span>
+        <div className="card-date">
+          <strong>{parts.day}</strong>
+          <span>{parts.month}</span>
         </div>
-        <h3>{event.nombre}</h3>
-        <p className="event-artist">{event.artista}</p>
-        <p className="event-meta">
-          {formatDate(event.fecha)} &nbsp;·&nbsp; {event.recinto || event.ciudad}
-        </p>
-        <p className="event-price">Desde {formatPrice(event.precioMinimo)}</p>
-        <Link to={`/eventos/${event.id}`} className="event-link">
-          Ver entradas y comprar
-        </Link>
+        <div className="card-info">
+          <p className="event-date-line">
+            {formatDate(event.fecha)} · {event.hora} h
+          </p>
+          <h3>
+            <Link to={`/eventos/${event.id}`}>{event.nombre}</Link>
+          </h3>
+          <p className="event-meta">{event.recinto || event.ciudad}</p>
+          <div className="event-card-bottom">
+            <span className="event-price">
+              Desde <strong>{formatPrice(event.precioMinimo)}</strong>
+            </span>
+            {event.disponibilidad <= 50 ? (
+              <span className="low-stock">Últimas {event.disponibilidad}</span>
+            ) : null}
+          </div>
+          <Link to={`/eventos/${event.id}`} className="event-card-link">
+            Ver entradas <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
       </div>
     </article>
   );
 }
-
 export default EventCard;

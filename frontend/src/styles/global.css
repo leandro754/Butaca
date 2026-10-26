@@ -1,42 +1,41 @@
 /* ============================================
-   BUTACA — Design System v2
-   Dark premium theme + glassmorphism
+   BUTACA — Base visual y componentes de compra
    ============================================ */
 
 :root {
   /* Color palette */
-  --bg:           #080c12;
-  --bg-2:         #0e1420;
-  --surface:      rgba(255,255,255,0.04);
-  --surface-hover:rgba(255,255,255,0.08);
-  --glass:        rgba(14,20,32,0.72);
-  --border:       rgba(255,255,255,0.09);
-  --border-hover: rgba(255,255,255,0.18);
+  --bg:           #f5f3ee;
+  --bg-2:         #eeece5;
+  --surface:      #ffffff;
+  --surface-hover:#eeece5;
+  --glass:        #ffffff;
+  --border:       #deddd5;
+  --border-hover: #aaa99e;
 
   /* Brand */
-  --primary:      #e86d3f;
-  --primary-2:    #f5944d;
-  --primary-glow: rgba(232,109,63,0.35);
-  --accent:       #4ecdc4;
-  --accent-soft:  rgba(78,205,196,0.12);
+  --primary:      #bb4025;
+  --primary-2:    #a6351c;
+  --primary-glow: rgba(187,64,37,0.15);
+  --accent:       #286047;
+  --accent-soft:  #edf3ee;
 
   /* Text */
-  --text:         #f0f4f8;
-  --text-2:       #8a9bb0;
-  --text-3:       #4d607a;
+  --text:         #202222;
+  --text-2:       #62645d;
+  --text-3:       #6c6e67;
 
   /* Shadows */
-  --shadow-sm:   0 2px 8px rgba(0,0,0,0.4);
-  --shadow-md:   0 8px 32px rgba(0,0,0,0.5);
-  --shadow-lg:   0 24px 64px rgba(0,0,0,0.7);
-  --glow:        0 0 40px rgba(232,109,63,0.2);
+  --shadow-sm:   0 2px 8px rgba(20,24,20,0.04);
+  --shadow-md:   0 4px 18px rgba(20,24,20,0.04);
+  --shadow-lg:   0 16px 40px rgba(20,24,20,0.08);
+  --glow:        none;
 
   /* Radii */
-  --r-xs:  8px;
-  --r-sm:  12px;
-  --r-md:  18px;
-  --r-lg:  24px;
-  --r-xl:  32px;
+  --r-xs:  4px;
+  --r-sm:  6px;
+  --r-md:  8px;
+  --r-lg:  10px;
+  --r-xl:  12px;
 
   /* Transitions */
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -52,9 +51,7 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(232,109,63,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 90% 80%, rgba(78,205,196,0.06) 0%, transparent 60%);
+  line-height: 1.5;
 }
 a { color: inherit; text-decoration: none; }
 img { display: block; width: 100%; }

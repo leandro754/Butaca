@@ -5,9 +5,11 @@ import com.demo.butaca.dto.LoginRequest;
 import com.demo.butaca.dto.RegistroUsuarioRequest;
 import com.demo.butaca.model.EstadoUsuario;
 import com.demo.butaca.model.EstadoVerificacion;
+import com.demo.butaca.model.Persona;
 import com.demo.butaca.model.Rol;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.model.VerificacionIdentidad;
+import com.demo.butaca.repository.PersonaRepository;
 import com.demo.butaca.repository.RolRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
@@ -19,16 +21,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
+    private final PersonaRepository personaRepository;
     private final VerificacionIdentidadRepository verificacionRepository;
     private final AuditoriaSeguridadService auditoriaService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthService(UsuarioRepository usuarioRepository,
                        RolRepository rolRepository,
+                       PersonaRepository personaRepository,
                        VerificacionIdentidadRepository verificacionRepository,
                        AuditoriaSeguridadService auditoriaService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
+        this.personaRepository = personaRepository;
         this.verificacionRepository = verificacionRepository;
         this.auditoriaService = auditoriaService;
     }
@@ -45,9 +50,14 @@ public class AuthService {
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new IllegalArgumentException("Rol no encontrado: " + rolNombre));
 
+        String nombre = request.getNombreUsuario().trim();
+        String apellido = request.getApellidoUsuario().trim();
+        Persona persona = resolverPersona(nombre, apellido, request.getDniUsuario(), emailNormalizado, request.getTelefono());
+
         Usuario usuario = new Usuario();
-        usuario.setNombreUsuario(request.getNombreUsuario().trim());
-        usuario.setApellidoUsuario(request.getApellidoUsuario().trim());
+        usuario.setPersona(persona);
+        usuario.setNombreUsuario(nombre);
+        usuario.setApellidoUsuario(apellido);
         if (request.getDniUsuario() != null && !request.getDniUsuario().isBlank()) {
             usuario.setDniUsuario(request.getDniUsuario().trim());
         }
@@ -67,6 +77,26 @@ public class AuthService {
                 "Registro de nueva cuenta con rol " + rolNombre
         );
         return toResponse(guardado, "Usuario registrado correctamente");
+    }
+
+    private Persona resolverPersona(String nombre, String apellido, String dniStr, String email, String telefono) {
+        if (dniStr == null || dniStr.isBlank()) {
+            return null;
+        }
+        String digitos = dniStr.replaceAll("\\D", "");
+        if (digitos.isEmpty()) {
+            return null;
+        }
+        Long dniLong = Long.parseLong(digitos);
+        return personaRepository.findByDniPersona(dniLong).orElseGet(() -> personaRepository.save(
+                Persona.builder()
+                        .dniPersona(dniLong)
+                        .nombrePersona(nombre)
+                        .apellidoPersona(apellido)
+                        .emailPersona(email)
+                        .telefonoPersona(telefono)
+                        .build()
+        ));
     }
 
     @Transactional

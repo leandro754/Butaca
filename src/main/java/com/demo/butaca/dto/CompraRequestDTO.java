@@ -13,6 +13,9 @@ public class CompraRequestDTO {
     @JsonProperty("evento_id")
     private Long eventoId;
 
+    @JsonProperty("tipo_entrada_id")
+    private Long tipoEntradaId;
+
     @NotNull
     @JsonProperty("usuario_id")
     private Long usuarioId;

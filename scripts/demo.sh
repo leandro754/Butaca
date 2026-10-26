@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKEND_PORT="${SERVER_PORT:-8080}"
+BACKEND_PORT="${SERVER_PORT:-8081}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 MODE=demo
 case "${1:-}" in
@@ -10,7 +10,7 @@ case "${1:-}" in
   --dev) MODE=dev ;;
   -h|--help)
     echo "Uso: ./scripts/demo.sh [--dev]"
-    echo "Demo: web + API en SERVER_PORT (8080). --dev: Vite en FRONTEND_PORT (5173)."
+    echo "Demo: web + API en SERVER_PORT (8081). --dev: Vite en FRONTEND_PORT (5173)."
     exit 0 ;;
   *) echo "Opcion desconocida: $1. Usa --help." >&2; exit 1 ;;
 esac
@@ -93,6 +93,8 @@ wait_endpoint() {
 }
 
 echo "Iniciando backend... Logs: $LOG_DIR/backend.log"
+if [ "$MODE" = dev ]; then PUBLIC_PORT="$FRONTEND_PORT"; else PUBLIC_PORT="$BACKEND_PORT"; fi
+export BUTACA_PUBLIC_URL="${BUTACA_PUBLIC_URL:-http://localhost:$PUBLIC_PORT}"
 bash ./mvnw "${MAVEN_ARGS[@]}" spring-boot:run -Dspring-boot.run.profiles=demo \
   "-Dspring-boot.run.arguments=--server.port=$BACKEND_PORT" >"$LOG_DIR/backend.log" 2>&1 &
 pids+=("$!")

@@ -1,191 +1,124 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { generateQRMatrix } from "../../utils/qrCode";
 
 function QRCodeImage({ value, size = 150, className = "" }) {
-  const [imgError, setImgError] = useState(false);
-  const textValue = value || "BUTACA-ACCESO-DIGITAL";
-
-  // Fallback a matriz SVG local si no hay conexión externa
   const matrix = useMemo(() => {
     try {
-      return generateQRMatrix(textValue);
+      return value ? generateQRMatrix(String(value)) : null;
     } catch {
       return null;
     }
-  }, [textValue]);
-
-  // URL del código QR nítido
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size * 2}x${size * 2}&margin=8&data=${encodeURIComponent(textValue)}`;
-
-  if (!imgError) {
-    return (
-      <img
-        src={qrApiUrl}
-        alt="Código QR de Acceso"
-        width={size}
-        height={size}
-        className={className}
-        onError={() => setImgError(true)}
-        style={{
-          borderRadius: "12px",
-          background: "#ffffff",
-          padding: "6px",
-          boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
-          display: "block",
-          objectFit: "contain"
-        }}
-      />
-    );
-  }
-
-  // Fallback SVG local
-  if (!matrix) {
-    return <div style={{ width: size, height: size, background: "#ffffff", borderRadius: "12px" }} />;
-  }
-
-  const moduleCount = matrix.length;
+  }, [value]);
+  if (!matrix) return <span role="alert">Código QR no disponible</span>;
+  const length = matrix.length;
+  // Quiet zone de cuatro módulos: parte del SVG, también al cambiar su tamaño.
+  const path = matrix
+    .flatMap((row, y) =>
+      row.flatMap((dark, x) => (dark ? [`M${x},${y}h1v1h-1z`] : [])),
+    )
+    .join("");
   return (
     <svg
+      role="img"
+      aria-label="Código QR de entrada"
       width={size}
       height={size}
-      viewBox={`0 0 ${moduleCount} ${moduleCount}`}
+      viewBox={`-4 -4 ${length + 8} ${length + 8}`}
       className={className}
-      style={{
-        background: "#ffffff",
-        borderRadius: "12px",
-        padding: "8px",
-        boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
-        display: "block"
-      }}
       shapeRendering="crispEdges"
+      style={{ display: "block", background: "white", flexShrink: 0 }}
     >
-      <rect width={moduleCount} height={moduleCount} fill="#ffffff" />
-      {matrix.map((row, r) =>
-        row.map((isDark, c) =>
-          isDark ? (
-            <rect
-              key={`${r}-${c}`}
-              x={c}
-              y={r}
-              width={1}
-              height={1}
-              fill="#0d1117"
-            />
-          ) : null
-        )
-      )}
+      <rect x="-4" y="-4" width={length + 8} height={length + 8} fill="white" />
+      <path d={path} fill="#000" />
     </svg>
   );
 }
 
-export function downloadTicketAsImage({ ticket, eventTitle, venue, date, time, buyerName }) {
+export function downloadTicketAsImage({
+  ticket,
+  eventTitle,
+  venue,
+  date,
+  time,
+  buyerName,
+}) {
+  const code = ticket.codigo_unico_entrada || ticket.codigoUnicoEntrada;
+  if (!code) return;
+  const matrix = generateQRMatrix(String(code));
   const canvas = document.createElement("canvas");
-  const width = 680;
-  const height = 360;
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = 1000;
+  canvas.height = 480;
   const ctx = canvas.getContext("2d");
-
-  const qrData = ticket.codigo_unico_entrada || ticket.codigoUnicoEntrada || ticket.id || "BUTACA-TICKET";
-  const matrix = generateQRMatrix(qrData);
-  const moduleCount = matrix.length;
-
-  // Background con gradiente elegante
-  const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#0c131f");
-  gradient.addColorStop(0.5, "#141c2c");
-  gradient.addColorStop(1, "#1a253a");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-
-  // Marco exterior
-  ctx.strokeStyle = "rgba(232, 109, 63, 0.6)";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(12, 12, width - 24, height - 24);
-
-  // Cabecera
-  ctx.fillStyle = "#e86d3f";
-  ctx.font = "bold 13px sans-serif";
-  ctx.fillText("BUTACA TICKETS · PASE DIGITAL OFICIAL", 36, 44);
-
-  // Título del evento
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#f5f3ee";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#d6d8cc";
+  ctx.strokeRect(16, 16, 968, 448);
+  ctx.fillStyle = "#bb4025";
   ctx.font = "bold 22px sans-serif";
-  const truncatedTitle = (eventTitle || "Entrada de Espectáculo").length > 30
-    ? (eventTitle || "Entrada de Espectáculo").substring(0, 30) + "..."
-    : (eventTitle || "Entrada de Espectáculo");
-  ctx.fillText(truncatedTitle, 36, 88);
-
-  // Datos principales
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "14px sans-serif";
-  ctx.fillText(`Lugar:`, 36, 130);
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillText(venue || "Ubicación confirmada", 90, 130);
-
-  ctx.fillStyle = "#94a3b8";
-  ctx.fillText(`Fecha:`, 36, 162);
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillText(`${date || "Próximamente"} ${time ? `· ${time} hs` : ""}`, 90, 162);
-
-  ctx.fillStyle = "#94a3b8";
-  ctx.fillText(`Titular:`, 36, 194);
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillText(buyerName || "Espectador Butaca", 90, 194);
-
-  // Línea divisoria
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(36, 230);
-  ctx.lineTo(width - 36, 230);
-  ctx.stroke();
-
-  // Pie de tarjeta
-  ctx.fillStyle = "#e86d3f";
-  ctx.font = "bold 13px sans-serif";
-  ctx.fillText("ENTRADA VÁLIDA PARA INGRESO DIRECTO", 36, 270);
-
-  ctx.fillStyle = "#64748b";
-  ctx.font = "12px sans-serif";
-  ctx.fillText("Presente el código QR en el lector al ingresar al recinto.", 36, 298);
-  ctx.fillText("Válido para un único acceso.", 36, 318);
-
-  // Código QR (Lado derecho)
-  const qrSize = 160;
-  const qrX = width - qrSize - 36;
-  const qrY = 46;
-
-  // Fondo blanco del QR
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, 10) : ctx.fillRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20);
-  ctx.fill();
-
-  // Dibujar matriz del QR
-  const cellSize = qrSize / moduleCount;
-  ctx.fillStyle = "#0c131f";
-  for (let r = 0; r < moduleCount; r++) {
-    for (let c = 0; c < moduleCount; c++) {
-      if (matrix[r][c]) {
-        ctx.fillRect(qrX + c * cellSize, qrY + r * cellSize, cellSize + 0.35, cellSize + 0.35);
-      }
-    }
+  ctx.fillText("butaca.", 42, 61);
+  ctx.fillStyle = "#62645d";
+  ctx.font = "13px sans-serif";
+  ctx.fillText("ENTRADA NOMINAL / PRESENTAR CON DNI", 42, 90);
+  ctx.fillStyle = "#202222";
+  ctx.font = "bold 28px sans-serif";
+  const title = eventTitle || "Entrada Butaca";
+  const words = title.split(/\s+/);
+  let line = "",
+    titleY = 145;
+  for (const word of words) {
+    const candidate = `${line} ${word}`.trim();
+    if (ctx.measureText(candidate).width > 560 && line) {
+      ctx.fillText(line, 42, titleY, 560);
+      titleY += 34;
+      line = word;
+    } else line = candidate;
+    if (titleY >= 179) break;
   }
-
-  // Leyenda bajo QR
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "bold 10px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("ESCANEAR EN PUERTA", qrX + qrSize / 2, qrY + qrSize + 28);
-  ctx.textAlign = "left";
-
-  // Descargar archivo
+  ctx.fillText(line, 42, titleY, 560);
+  ctx.font = "17px sans-serif";
+  ctx.fillText(venue || "Recinto a confirmar", 42, 245, 560);
+  ctx.fillText(
+    `${date || "Fecha a confirmar"}${time ? ` · ${time} h` : ""}`,
+    42,
+    278,
+    560,
+  );
+  ctx.fillText(buyerName || "Titular de la entrada", 42, 316, 560);
+  ctx.fillStyle = "#62645d";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(
+    "Presentá este QR junto con tu DNI físico. Válido para un único ingreso.",
+    42,
+    392,
+    850,
+  );
+  ctx.font = "12px monospace";
+  ctx.fillText(String(code), 42, 430);
+  const scale = 7;
+  const side = (matrix.length + 8) * scale;
+  const x = 1000 - side - 42;
+  const y = 100;
+  ctx.fillStyle = "white";
+  ctx.fillRect(x, y, side, side);
+  ctx.fillStyle = "black";
+  matrix.forEach((row, rowIndex) =>
+    row.forEach((dark, column) => {
+      if (dark)
+        ctx.fillRect(
+          x + (column + 4) * scale,
+          y + (rowIndex + 4) * scale,
+          scale,
+          scale,
+        );
+    }),
+  );
   const link = document.createElement("a");
-  const cleanTitle = (eventTitle || "entrada").toLowerCase().replace(/[^a-z0-9]/g, "-");
-  link.download = `entrada-butaca-${cleanTitle}.png`;
+  const cleanTitle = (eventTitle || "entrada")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .slice(0, 65);
+  link.download = `entrada-butaca-${cleanTitle}-${String(code).slice(0, 8)}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
 }
-
 export default QRCodeImage;

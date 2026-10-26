@@ -5,6 +5,7 @@ import com.demo.butaca.dto.CompraRequestDTO;
 import com.demo.butaca.dto.CompraResponseDTO;
 import com.demo.butaca.dto.EventoResponseDTO;
 import com.demo.butaca.dto.LoginRequest;
+import com.demo.butaca.dto.CancelarEventoRequest;
 import com.demo.butaca.dto.RegistroUsuarioRequest;
 import com.demo.butaca.dto.VerificacionCruceDTO;
 import com.demo.butaca.dto.VerificacionIdentidadDTO;
@@ -13,7 +14,11 @@ import com.demo.butaca.model.AuditoriaSeguridad;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.repository.AuditoriaSeguridadRepository;
 import com.demo.butaca.repository.EntradaRepository;
+import com.demo.butaca.repository.ComprobanteRepository;
 import com.demo.butaca.repository.HistorialEstadoEntradaRepository;
+import com.demo.butaca.repository.PersonaRepository;
+import com.demo.butaca.repository.ReembolsoRepository;
+import com.demo.butaca.repository.TipoEntradaRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.service.AuthService;
 import com.demo.butaca.service.CompraService;
@@ -23,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.math.BigDecimal;
 import java.util.Base64;
@@ -34,13 +41,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = "butaca.mail.enabled=false")
 @ActiveProfiles("demo")
 class ButacaApplicationTests {
 
     private static final byte[] FOTO_PNG = Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII="
     );
+
+    @Autowired
+    @Qualifier("initDatabase")
+    private CommandLineRunner demoLoader;
 
     @Autowired
     private EventoService eventoService;
@@ -66,8 +77,31 @@ class ButacaApplicationTests {
     @Autowired
     private AuditoriaSeguridadRepository auditoriaRepository;
 
+    @Autowired
+    private PersonaRepository personaRepository;
+
+    @Autowired
+    private TipoEntradaRepository tipoEntradaRepository;
+
+    @Autowired
+    private ReembolsoRepository reembolsoRepository;
+
+    @Autowired
+    private ComprobanteRepository comprobanteRepository;
+
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void carteleraDemoVariadaNoDuplicaEventosAlRepetirSemilla() throws Exception {
+        List<EventoResponseDTO> antes = eventoService.listarEventosPublicados();
+        assertTrue(antes.size() >= 18);
+        assertTrue(antes.stream().map(EventoResponseDTO::getCategoriaNombre).distinct().count() >= 6);
+        demoLoader.run();
+        List<EventoResponseDTO> despues = eventoService.listarEventosPublicados();
+        assertEquals(antes.size(), despues.size());
+        assertEquals(despues.size(), despues.stream().map(EventoResponseDTO::getTituloEvento).distinct().count());
     }
 
     @Test
@@ -129,7 +163,7 @@ class ButacaApplicationTests {
         assertEquals(compra.getTotal(), compra.getPago().getMonto());
         assertNotNull(compra.getPago().getCodigoAutorizacion());
         assertNotNull(compra.getComprobante());
-        assertEquals("ENVIADO", compra.getComprobante().getEstadoEnvioComprobante());
+        assertEquals("PENDIENTE", compra.getComprobante().getEstadoEnvioComprobante());
         assertEquals(64, compra.getComprobante().getHashCruceSeguridad().length());
         assertTrue(compra.getEntradas().stream().allMatch(entrada -> entrada.getCodigoUnicoEntrada() != null));
         assertTrue(compra.getEntradas().stream()
@@ -318,5 +352,32 @@ class ButacaApplicationTests {
                 FOTO_PNG,
                 "image/png"
         );
+
+    }
+
+    @Test
+    void modeloCompleto16TablasSincronizadoConDrawDbIncluyendoPersonaTipoEntradaYReembolso() {
+        assertFalse(personaRepository.findAll().isEmpty());
+        assertFalse(tipoEntradaRepository.findAll().isEmpty());
+        assertFalse(comprobanteRepository.findAll().isEmpty());
+
+        List<EventoResponseDTO> publicados = eventoService.listarEventosPublicados();
+        EventoResponseDTO aCancelar = publicados.get(publicados.size() - 1);
+        Usuario cliente = usuarioRepository.findByEmailUsuarioIgnoreCase("cliente@butaca.com").orElseThrow();
+
+        CompraRequestDTO compraReq = new CompraRequestDTO();
+        compraReq.setEventoId(aCancelar.getIdEvento());
+        compraReq.setUsuarioId(cliente.getIdUsuario());
+        compraReq.setCantidad(1);
+        compraReq.setAsistentes(List.of(new AsistenteNominalDTO(cliente.getDniUsuario(), cliente.getNombreUsuario() + " " + cliente.getApellidoUsuario())));
+        compraService.comprarEntrada(compraReq);
+
+        EventoResponseDTO actual = eventoService.obtenerEvento(aCancelar.getIdEvento());
+        CancelarEventoRequest cancelacion = new CancelarEventoRequest();
+        cancelacion.setConfirmarReembolsos(true);
+        cancelacion.setTituloConfirmacion(actual.getTituloEvento());
+        cancelacion.setVersion(actual.getVersion());
+        eventoService.cancelarEvento(aCancelar.getIdEvento(), cancelacion);
+        assertFalse(reembolsoRepository.findAll().isEmpty());
     }
 }

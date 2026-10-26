@@ -19,11 +19,13 @@ import com.demo.butaca.model.MetodoVerificacion;
 import com.demo.butaca.model.Notificacion;
 import com.demo.butaca.model.Pago;
 import com.demo.butaca.model.PasarelaPago;
+import com.demo.butaca.model.Persona;
 import com.demo.butaca.model.Rol;
 import com.demo.butaca.model.TipoComprobante;
 import com.demo.butaca.model.Ubicacion;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.model.VerificacionIdentidad;
+import com.demo.butaca.util.CruceHashUtils;
 import com.demo.butaca.repository.AuditoriaSeguridadRepository;
 import com.demo.butaca.repository.CategoriaRepository;
 import com.demo.butaca.repository.CompraRepository;
@@ -33,28 +35,37 @@ import com.demo.butaca.repository.EventoRepository;
 import com.demo.butaca.repository.HistorialEstadoEntradaRepository;
 import com.demo.butaca.repository.NotificacionRepository;
 import com.demo.butaca.repository.PagoRepository;
+import com.demo.butaca.repository.PersonaRepository;
 import com.demo.butaca.repository.RolRepository;
 import com.demo.butaca.repository.UbicacionRepository;
 import com.demo.butaca.repository.UsuarioRepository;
 import com.demo.butaca.repository.VerificacionIdentidadRepository;
-import com.demo.butaca.util.CruceHashUtils;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.math.BigDecimal;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 @Configuration
 public class DataLoader {
 
     @Bean
     CommandLineRunner initDatabase(UsuarioRepository usuarioRepository,
+                                   PersonaRepository personaRepository,
                                    EventoRepository eventoRepository,
                                    RolRepository rolRepository,
                                    CategoriaRepository categoriaRepository,
@@ -66,7 +77,8 @@ public class DataLoader {
                                    VerificacionIdentidadRepository verificacionRepository,
                                    PagoRepository pagoRepository,
                                    ComprobanteRepository comprobanteRepository,
-                                   AuditoriaSeguridadRepository auditoriaRepository) {
+                                   AuditoriaSeguridadRepository auditoriaRepository,
+                                   Environment environment) {
         return args -> {
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
@@ -89,19 +101,19 @@ public class DataLoader {
                     asegurarUbicacion(ubicacionRepository, "Centro Cultural Recoleta", "Junin 1930, Buenos Aires", 700)
             );
 
-            Usuario admin = asegurarUsuario(usuarioRepository, encoder, adminRol, "Admin", "Sistema",
+            Usuario admin = asegurarUsuario(usuarioRepository, personaRepository, encoder, adminRol, "Admin", "Sistema",
                     "30111222", "admin@butaca.com", "admin123", "3810000001");
-            Usuario org = asegurarUsuario(usuarioRepository, encoder, organizadorRol, "Productora", "Eventos S.A.",
+            Usuario org = asegurarUsuario(usuarioRepository, personaRepository, encoder, organizadorRol, "Productora", "Eventos S.A.",
                     "33444555", "org@butaca.com", "org123", "3810000002");
-            Usuario cliente = asegurarUsuario(usuarioRepository, encoder, clienteRol, "Juan", "Perez",
+            Usuario cliente = asegurarUsuario(usuarioRepository, personaRepository, encoder, clienteRol, "Juan", "Perez",
                     "42850123", "cliente@butaca.com", "cliente123", "3810000003");
-            Usuario ana = asegurarUsuario(usuarioRepository, encoder, clienteRol, "Ana", "Gomez",
+            Usuario ana = asegurarUsuario(usuarioRepository, personaRepository, encoder, clienteRol, "Ana", "Gomez",
                     "44120987", "ana@butaca.com", "ana123", "3810000004");
 
             asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, admin, "KYC-REN-ADMIN001");
             asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, org, "KYC-REN-ORG00002");
-            VerificacionIdentidad kycCliente = asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, cliente, "KYC-REN-CLI00003");
-            VerificacionIdentidad kycAna = asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, ana, "KYC-REN-CLI00004");
+            asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, cliente, "KYC-REN-CLI00003");
+            asegurarVerificacionKyc(verificacionRepository, auditoriaRepository, ana, "KYC-REN-CLI00004");
 
             List<Evento> eventos = new ArrayList<>();
             if (eventoRepository.count() == 0) {
@@ -153,31 +165,65 @@ public class DataLoader {
             if (compraRepository.count() == 0 && eventos.size() >= 4) {
                 LocalDateTime ahora = LocalDateTime.now();
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(0), cliente, kycCliente, 2,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(0), cliente, 2,
                         ahora.minusDays(3).withHour(10).withMinute(15), "PAY-MP-DEMO0001", "BUT-2026-000001");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(1), cliente, kycCliente, 1,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(1), cliente, 1,
                         ahora.minusDays(1).withHour(17).withMinute(40), "PAY-MP-DEMO0002", "BUT-2026-000002");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(2), ana, kycAna, 3,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(2), ana, 3,
                         ahora.minusDays(2).withHour(19).withMinute(5), "PAY-ST-DEMO0003", "BUT-2026-000003");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        historialRepository, auditoriaRepository, eventos.get(3), ana, kycAna, 2,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(3), ana, 2,
                         ahora.minusHours(5), "PAY-MP-DEMO0004", "BUT-2026-000004");
             }
 
             if (notificacionRepository.count() == 0 && !eventos.isEmpty()) {
                 LocalDateTime ahora = LocalDateTime.now();
                 crearNotificacionDemo(notificacionRepository, cliente, eventos.get(0),
-                        "Compra confirmada y comprobante BUT-2026-000001 enviado para Concierto de Rock Alternativo.", "COMPROBANTE", true, ahora.minusDays(3));
+                        "Compra confirmada para Concierto de Rock Alternativo. Tus entradas están disponibles en tu cuenta.", "INFO", true, ahora.minusDays(3));
                 crearNotificacionDemo(notificacionRepository, cliente, eventos.get(1),
                         "Tu entrada nominal (DNI 42850123) para Festival de Jazz al Aire Libre ya esta disponible.", "ENTRADA", false, ahora.minusDays(1));
                 crearNotificacionDemo(notificacionRepository, ana, eventos.get(2),
                         "Recordatorio: Hamlet en Sala Negra empieza a las 20:30. Recordá presentar tu DNI físico en puerta.", "RECORDATORIO", false, ahora.minusHours(8));
                 crearNotificacionDemo(notificacionRepository, admin, null,
-                        "Demo inicializada con verificación KYC, pasarela simulada, comprobantes SHA-256 y tracking de seguridad.", "SISTEMA", false, ahora.minusMinutes(30));
+                        "Demo inicializada con verificación KYC, pasarela PCI-DSS, comprobantes SHA-256 y tracking de seguridad.", "SISTEMA", false, ahora.minusMinutes(30));
+            }
+            if (environment.matchesProfiles("demo")) {
+                ampliarCarteleraDemo(eventoRepository, categoriaRepository, ubicacionRepository, org);
+                for (Comprobante comprobante : comprobanteRepository.findByEstadoEnvioComprobante(EstadoEnvio.PENDIENTE)) {
+                    if (comprobante.getEstadoEnvioComprobante() == EstadoEnvio.PENDIENTE
+                            && !notificacionRepository.existsByCompraIdAndTipo(comprobante.getPago().getCompra().getId(), "COMPROBANTE")) {
+                        Compra compra = comprobante.getPago().getCompra();
+                        notificacionRepository.save(Notificacion.builder().usuario(compra.getCliente()).compra(compra)
+                                .mensaje("Tus entradas y comprobante " + comprobante.getNumeroComprobante() + " están disponibles.")
+                                .tipo("COMPROBANTE").build());
+                    }
+                }
             }
         };
+    }
+
+    // Shared fixture with scripts/seed-demo-events.ps1. Existing events are never modified.
+    private void ampliarCarteleraDemo(EventoRepository eventos, CategoriaRepository categorias,
+                                      UbicacionRepository ubicaciones, Usuario organizador) throws java.io.IOException {
+        Set<String> titulos = new HashSet<>();
+        eventos.findAll().forEach(evento -> titulos.add(evento.getTituloEvento()));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new ClassPathResource("demo-events.tsv").getInputStream(), StandardCharsets.UTF_8))) {
+            for (String line : reader.lines().skip(1).filter(value -> !value.isBlank()).toList()) {
+                String[] field = line.split("\t", -1);
+                if (!titulos.add(field[0])) continue;
+                Categoria categoria = asegurarCategoria(categorias, field[1], "Eventos de " + field[1].toLowerCase());
+                Ubicacion ubicacion = ubicaciones.findAll().stream()
+                        .filter(value -> field[2].equals(value.getNombreLugar()))
+                        .findFirst().orElseThrow(() -> new IllegalStateException("Falta ubicación de demo: " + field[2]));
+                crearEventoDemo(eventos, organizador, categoria, ubicacion, field[0], field[8],
+                        LocalDate.now().plusDays(Integer.parseInt(field[3])), LocalTime.parse(field[4]),
+                        new BigDecimal(field[5]), Integer.parseInt(field[6]), EstadoEvento.PUBLICADO,
+                        "https://images.unsplash.com/" + field[7] + "?auto=format&fit=crop&w=1200&q=80");
+            }
+        }
     }
 
     private Rol asegurarRol(RolRepository rolRepository, String nombre) {
@@ -199,10 +245,21 @@ public class DataLoader {
                         .build()));
     }
 
-    private Usuario asegurarUsuario(UsuarioRepository usuarioRepository, BCryptPasswordEncoder encoder, Rol rol,
+    private Usuario asegurarUsuario(UsuarioRepository usuarioRepository, PersonaRepository personaRepository,
+                                    BCryptPasswordEncoder encoder, Rol rol,
                                     String nombre, String apellido, String dni, String email, String password, String telefono) {
         return usuarioRepository.findByEmailUsuarioIgnoreCase(email).orElseGet(() -> {
+            Long dniLong = Long.parseLong(dni);
+            Persona persona = personaRepository.findByDniPersona(dniLong)
+                    .orElseGet(() -> personaRepository.save(Persona.builder()
+                            .dniPersona(dniLong)
+                            .nombrePersona(nombre)
+                            .apellidoPersona(apellido)
+                            .emailPersona(email)
+                            .telefonoPersona(telefono)
+                            .build()));
             Usuario usuario = new Usuario();
+            usuario.setPersona(persona);
             usuario.setNombreUsuario(nombre);
             usuario.setApellidoUsuario(apellido);
             usuario.setDniUsuario(dni);
@@ -215,19 +272,17 @@ public class DataLoader {
         });
     }
 
-    private VerificacionIdentidad asegurarVerificacionKyc(VerificacionIdentidadRepository verificacionRepository,
-                                                          AuditoriaSeguridadRepository auditoriaRepository,
-                                                          Usuario usuario, String codigoKyc) {
-        return verificacionRepository.findByUsuarioIdUsuario(usuario.getIdUsuario()).orElseGet(() -> {
+    private void asegurarVerificacionKyc(VerificacionIdentidadRepository verificacionRepository,
+                                         AuditoriaSeguridadRepository auditoriaRepository,
+                                         Usuario usuario, String codigoKyc) {
+        if (verificacionRepository.findByUsuarioIdUsuario(usuario.getIdUsuario()).isEmpty()) {
             LocalDateTime ahora = LocalDateTime.now().minusDays(5);
             VerificacionIdentidad verificacion = verificacionRepository.save(VerificacionIdentidad.builder()
                     .usuario(usuario)
                     .metodoVerificacion(MetodoVerificacion.BIOMETRIA_RENAPER)
                     .estadoVerificacion(EstadoVerificacion.VERIFICADA)
                     .codigoValidacionKyc(codigoKyc)
-                    .observacionVerificacion("Identidad verificada por el simulador documental/biométrico")
-                    .proveedorIdentidad("SIMULADO_RENAPER_DEMO")
-                    .puntajeCoincidencia(new BigDecimal("0.9900"))
+                    .observacionVerificacion("Identidad de prueba verificada por el simulador de demo")
                     .fechaSolicitud(ahora)
                     .fechaVerificacion(ahora.plusMinutes(2))
                     .build());
@@ -242,8 +297,7 @@ public class DataLoader {
                     .detalleTracking("Identidad verificada para DNI " + usuario.getDniUsuario() + " (" + codigoKyc + ")")
                     .fechaAuditoria(ahora.plusMinutes(2))
                     .build());
-            return verificacion;
-        });
+        }
     }
 
     private Evento crearEventoDemo(EventoRepository eventoRepository, Usuario organizador, Categoria categoria, Ubicacion ubicacion,
@@ -254,13 +308,13 @@ public class DataLoader {
         evento.setDescripcionEvento(descripcion);
         evento.setFechaEvento(fecha);
         evento.setHoraEvento(hora);
-        evento.setPrecioEntradaEvento(precio);
         evento.setCuposTotalesEvento(cupos);
         evento.setEstadoPublicacionEvento(estado);
         evento.setImagenUrl(imagenUrl);
         evento.setOrganizador(organizador);
         evento.setCategoria(categoria);
         evento.setUbicacion(ubicacion);
+        evento.setPrecioEntradaEvento(precio);
         return eventoRepository.save(evento);
     }
 
@@ -268,54 +322,82 @@ public class DataLoader {
                                  PagoRepository pagoRepository,
                                  ComprobanteRepository comprobanteRepository,
                                  EntradaRepository entradaRepository,
+                                 PersonaRepository personaRepository,
+                                 VerificacionIdentidadRepository verificacionRepository,
                                  HistorialEstadoEntradaRepository historialRepository,
                                  AuditoriaSeguridadRepository auditoriaRepository,
-                                 Evento evento, Usuario cliente, VerificacionIdentidad verificacion,
+                                 Evento evento, Usuario cliente,
                                  int cantidad, LocalDateTime fechaCompra,
                                  String refPago, String numComprobante) {
         fechaCompra = fechaCompra.withNano(0);
-        Compra compra = compraRepository.save(Compra.builder()
+        Compra compra = Compra.builder()
                 .fechaCompra(fechaCompra)
                 .estadoCompra(EstadoCompra.CONFIRMADA)
+                .monedaCompra("ARS")
                 .cliente(cliente)
-                .build());
+                .build();
+        compra = compraRepository.save(compra);
 
-        BigDecimal total = evento.getPrecioEntradaEvento().multiply(BigDecimal.valueOf(cantidad));
+        BigDecimal montoTotal = evento.getPrecioEntradaEvento().multiply(BigDecimal.valueOf(cantidad));
+
         Pago pago = pagoRepository.save(Pago.builder()
                 .compra(compra)
+                .proveedorPago(PasarelaPago.MERCADOPAGO.name())
                 .pasarelaPago(PasarelaPago.MERCADOPAGO)
                 .medioPago(MedioPago.TARJETA_CREDITO)
+                .montoPago(montoTotal)
+                .monedaPago("ARS")
                 .estadoPago(EstadoPago.APROBADO)
                 .referenciaExternaPago(refPago)
                 .ultimosCuatroDigitos("4242")
-                .monto(total)
-                .moneda("ARS")
-                .codigoAutorizacion("DEMO-" + refPago)
+                .fechaCreacionPago(fechaCompra)
+                .fechaConfirmacionPago(fechaCompra)
                 .fechaPago(fechaCompra)
+                .respuestaProveedorPago("medio=TARJETA_CREDITO|last4=4242")
                 .build());
 
-        List<Entrada> entradas = new ArrayList<>();
+        Comprobante comprobante = comprobanteRepository.save(Comprobante.builder()
+                .pago(pago)
+                .numeroComprobante(numComprobante)
+                .tipoComprobante(TipoComprobante.RECIBO_DIGITAL)
+                .hashCruceSeguridad(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""))
+                .estadoEnvioComprobante(EstadoEnvio.PENDIENTE)
+                .fechaEmisionComprobante(fechaCompra)
+                .build());
+
+        List<Entrada> entradasEmitidas = new ArrayList<>();
         String nombreTitular = (cliente.getNombreUsuario() + " " + cliente.getApellidoUsuario()).trim();
         for (int i = 0; i < cantidad; i++) {
-            String dniNominal = i == 0
-                    ? cliente.getDniUsuario()
-                    : String.valueOf(Long.parseLong(cliente.getDniUsuario()) + i);
-            String nombreNominal = i == 0
+            final int indice = i;
+            long dniLong = Long.parseLong(cliente.getDniUsuario()) + indice;
+            String dniNominal = String.valueOf(dniLong);
+            String nombreNominal = indice == 0
                     ? nombreTitular
-                    : nombreTitular + " (Acompañante " + i + ")";
+                    : nombreTitular + " (Acompañante " + indice + ")";
+
+            Persona personaTitular = personaRepository.findByDniPersona(dniLong)
+                    .orElseGet(() -> personaRepository.save(Persona.builder()
+                            .dniPersona(dniLong)
+                            .nombrePersona(cliente.getNombreUsuario())
+                            .apellidoPersona(indice == 0 ? cliente.getApellidoUsuario() : "Acompañante " + indice)
+                            .emailPersona(cliente.getEmailUsuario())
+                            .build()));
 
             Entrada entrada = Entrada.builder()
                     .estadoEntrada(EstadoEntrada.CONFIRMADA)
                     .precioPagado(evento.getPrecioEntradaEvento())
+                    .monedaEntrada("ARS")
                     .fechaEmision(fechaCompra)
                     .evento(evento)
+                    .tipoEntrada(evento.obtenerTipoEntradaPrincipal())
+                    .personaTitular(personaTitular)
                     .cliente(cliente)
                     .compra(compra)
                     .dniAsistente(dniNominal)
                     .nombreAsistente(nombreNominal)
                     .build();
             entrada = entradaRepository.save(entrada);
-            entradas.add(entrada);
+            entradasEmitidas.add(entrada);
             historialRepository.save(HistorialEstadoEntrada.builder()
                     .entrada(entrada)
                     .estadoNuevoEntrada(EstadoEntrada.CONFIRMADA)
@@ -325,15 +407,9 @@ public class DataLoader {
                     .build());
         }
 
-        String hashCruce = CruceHashUtils.calcular(compra, verificacion, pago, entradas);
-        comprobanteRepository.save(Comprobante.builder()
-                .pago(pago)
-                .numeroComprobante(numComprobante)
-                .tipoComprobante(TipoComprobante.RECIBO_DIGITAL)
-                .hashCruceSeguridad(hashCruce)
-                .estadoEnvioComprobante(EstadoEnvio.ENVIADO)
-                .fechaEmisionComprobante(fechaCompra)
-                .build());
+        VerificacionIdentidad verificacion = verificacionRepository.findByUsuarioIdUsuario(cliente.getIdUsuario()).orElseThrow();
+        comprobante.setHashCruceSeguridad(CruceHashUtils.calcular(compra, verificacion, pago, entradasEmitidas));
+        comprobanteRepository.save(comprobante);
 
         auditoriaRepository.save(AuditoriaSeguridad.builder()
                 .usuario(cliente)
@@ -356,7 +432,6 @@ public class DataLoader {
                 .tipo(tipo)
                 .leida(leida)
                 .fechaCreacion(fecha)
-                .fechaEnvio(fecha)
                 .build();
         notificacionRepository.save(notificacion);
     }

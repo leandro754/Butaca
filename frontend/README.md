@@ -4,18 +4,19 @@ Interfaz React + Vite conectada a la API Spring Boot. Los comandos de arranque i
 
 ## Ejecución independiente
 
-Con el backend en `http://localhost:8080`, ejecutar desde esta carpeta:
+Con el backend en `http://localhost:8081`, ejecutar desde esta carpeta:
 
 ```bash
+cp .env.example .env
 pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-Se requiere Node compatible con [`.nvmrc`](../.nvmrc) y pnpm 11.3 o superior. Si pnpm no está en el PATH y está disponible Corepack, usar `corepack pnpm` en los comandos.
+Se requiere Node compatible con [`.nvmrc`](../.nvmrc) y pnpm 9 o superior. Si pnpm no está en el PATH y está disponible Corepack, usar `corepack pnpm` en los comandos.
 
 `VITE_API_BASE_URL` permite elegir la API; el fallback es `http://localhost:8080/api`. Se puede copiar `.env.example` a `.env` para configurarlo localmente. Vite necesita reiniciarse después de cambiar esa variable.
 
-Los scripts integrales usan `VITE_API_BASE_URL=/api` y el proxy de Vite. `BUTACA_BACKEND_URL` configura el destino del proxy; por defecto es `http://localhost:8080`.
+Los scripts integrales usan `VITE_API_BASE_URL=/api` y el proxy de Vite. `BUTACA_BACKEND_URL` configura el destino del proxy; por defecto es `http://localhost:8081`.
 
 ## Comandos
 
