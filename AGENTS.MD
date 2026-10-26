@@ -101,6 +101,8 @@ pnpm run build
 - Mantener solo `.vscode/settings.json` y `.vscode/extensions.json` como configuracion versionable de editor.
 - No versionar ni recrear carpetas de otros editores o agentes: `.idea/`, `.opencode/`, `.agents/`, `.codex/`.
 - No versionar salidas generadas: `frontend/dist/`, `target/`, `node_modules/`.
+- No versionar bundles en `src/main/resources/static/`. El build de Vite se genera en `frontend/dist/` y Maven lo incorpora como recursos bajo `static/`.
+- Los lanzadores `iniciar-windows.bat` e `iniciar-mac.command` delegan en `scripts/demo.ps1` y `scripts/demo.sh`; `-Dev`/`--dev` agrega Vite. El backend usa 8081 por defecto; los puertos se eligen explicitamente.
 - Si se necesita limpiar el workspace, eliminar artefactos generados y luego reinstalar dependencias con `pnpm install`.
 
 ## Documentacion

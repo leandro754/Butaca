@@ -14,7 +14,8 @@ public class SpaController {
         "/confirmacion",
         "/login",
         "/registro",
-        "/dashboard"
+        "/dashboard",
+        "/dashboard/**"
     })
     public String forwardClientRoutes() {
         return "forward:/index.html";

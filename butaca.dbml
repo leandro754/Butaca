@@ -1,442 +1,470 @@
-Project butaca {
-  database_type: 'PostgreSQL'
+// Butaca: 16 entidades de DrawDB mas evidencias KYC de la implementacion.
+// Snapshot: docs/drawdb-butaca-modelado-datos.json. Sin modificar el diagrama remoto.
 
-  Note: '''
-  # Butaca - Modelo de Datos Relacional en 3FN y Seguridad Informática
-
-  Modelo relacional normalizado en Tercera Forma Normal (3FN) y Forma Normal de
-  Boyce-Codd (BCNF) para el proyecto académico Butaca.
-  Gestiona usuarios, verificación de identidad (KYC), eventos, ubicaciones,
-  categorías, compras, pasarela de pagos (PCI-DSS), comprobantes con cruce
-  criptográfico, entradas nominales, historial de tickets, notificaciones y
-  auditoría/tracking de seguridad.
-
-  El esquema aplica 3FN estricta y evita guardar valores calculados o redundantes:
-  - el cupo disponible se calcula desde el cupo total y las entradas vigentes;
-  - la cantidad y el total de una compra (y de su pago) se calculan desde sus entradas;
-  - el comprobante se vincula directamente al pago aprobado (sin duplicar id_compra ni id_cliente);
-  - la verificación de identidad se vincula al usuario sin repetir su nombre ni DNI;
-  - el precio pagado y los datos nominales del asistente en cada entrada se conservan
-    como hechos históricos inmutables del ticket emitido.
-  '''
+enum estado_compra {
+	PENDIENTE
+	CONFIRMADA
+	CANCELADA
 }
 
-Enum estado_usuario {
-  ACTIVO
-  INACTIVO
-  SUSPENDIDO
+enum estado_entrada {
+	CONFIRMADA
+	USADA
+	ANULADA
 }
 
-Enum estado_verificacion {
-  PENDIENTE
-  VERIFICADA
-  RECHAZADA
+enum estado_evento {
+	BORRADOR
+	PUBLICADO
+	CANCELADO
 }
 
-Enum metodo_verificacion {
-  BIOMETRIA_RENAPER
-  DOCUMENTO_DNI
-  OTP_EMAIL
+enum estado_usuario {
+	ACTIVO
+	INACTIVO
+	SUSPENDIDO
 }
 
-Enum estado_evento {
-  BORRADOR
-  PUBLICADO
-  CANCELADO
+enum estado_envio_notificacion {
+	ENVIADA
+	FALLIDA
+	PENDIENTE
 }
 
-Enum estado_compra {
-  PENDIENTE
-  CONFIRMADA
-  CANCELADA
+enum estado_pago {
+	PENDIENTE
+	APROBADO
+	RECHAZADO
+	REEMBOLSADO
+	CANCELADO
 }
 
-Enum pasarela_pago {
-  MERCADOPAGO
-  STRIPE
-  MODO
-  DEBITO_TOKENIZADO
+enum estado_reembolso {
+	PENDIENTE
+	APROBADO
+	RECHAZADO
+	PROCESADO
+	CANCELADO
 }
 
-Enum medio_pago {
-  TARJETA_CREDITO
-  TARJETA_DEBITO
-  TRANSFERENCIA_CVU
-  DINERO_CUENTA
+enum metodo_verificacion {
+	BIOMETRIA_RENAPER
+	DOCUMENTO_DNI
+	OTP_EMAIL
 }
 
-Enum estado_pago {
-  PENDIENTE
-  APROBADO
-  RECHAZADO
-  REEMBOLSADO
+enum estado_verificacion {
+	PENDIENTE
+	VERIFICADA
+	RECHAZADA
 }
 
-Enum tipo_comprobante {
-  RECIBO_DIGITAL
-  FACTURA_B
-  FACTURA_C
+enum tipo_comprobante {
+	RECIBO_DIGITAL
+	FACTURA_B
+	FACTURA_C
 }
 
-Enum estado_envio {
-  PENDIENTE
-  ENVIADO
-  ERROR_ENVIO
+enum estado_envio_comprobante {
+	PENDIENTE
+	ENVIADO
+	ERROR_ENVIO
 }
 
-Enum estado_entrada {
-  CONFIRMADA
-  USADA
-  ANULADA
+Table rol [headercolor: #ff6363] {
+	id_rol bigint [ pk, increment, not null, note: 'Identificador unico del rol.' ]
+	nombre_rol varchar(20) [ not null, unique, note: 'ADMIN, ORGANIZADOR o CLIENTE.' ]
+	created_at timestamp [ not null, default: now(), note: 'Auditoria tecnica heredada por las entidades JPA.' ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
+
+	Note: '''Catalogo de roles del sistema. Separarlo de usuario evita repetir el nombre del rol y escribir valores diferentes para un mismo perfil.
+
+CHECK constraints:
+- nombre_rol IN ('ADMIN', 'ORGANIZADOR', 'CLIENTE')'''
 }
 
-Table rol {
-  id_rol bigint [pk, increment, note: 'Identificador único del rol.']
-  nombre_rol varchar(20) [not null, unique, note: 'ADMIN, ORGANIZADOR o CLIENTE.']
-  created_at timestamp [not null, default: `now()`, note: 'Auditoría técnica heredada por las entidades JPA.']
-  updated_at timestamp
+Table usuario [headercolor: #ff6363] {
+	id_usuario bigint [ pk, increment, not null, note: 'Identificador unico de la cuenta.' ]
+	id_persona bigint [ note: 'Opcional hasta que la cuenta sea vinculada con una identidad real.' ]
+	id_rol bigint [ not null, note: 'Rol asignado al usuario.' ]
+	estado_usuario estado_usuario [ not null, default: 'ACTIVO', note: 'Estado de la cuenta: ACTIVO, INACTIVO o SUSPENDIDO.' ]
+	email_usuario varchar(255) [ not null, unique ]
+	password_hash_usuario varchar(255) [ not null, note: 'Contrasena cifrada; nunca se devuelve desde la API.' ]
+	telefono_usuario varchar(20)
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  checks {
-    `nombre_rol IN ('ADMIN', 'ORGANIZADOR', 'CLIENTE')` [name: 'chk_rol_valido']
-  }
+	indexes {
+		(id_persona) [ name: 'idx_usuario_persona' ]
+		(id_rol) [ name: 'idx_usuario_rol' ]
+		(estado_usuario) [ name: 'idx_usuario_estado' ]
+	}
 
-  Note: '''
-  Catálogo de roles del sistema. Separarlo de usuario evita repetir el nombre
-  del rol y escribir valores diferentes para un mismo perfil (3FN).
-  '''
+	Note: 'Guarda clientes, organizadores y administradores. El rol determina que operaciones puede realizar cada usuario. estado_usuario permite suspender o desactivar la cuenta.'
 }
 
-Table usuario {
-  id_usuario bigint [pk, increment, note: 'Identificador único del usuario.']
-  id_rol bigint [not null, note: 'Rol asignado al usuario.']
-  nombre_usuario varchar(100) [not null]
-  apellido_usuario varchar(100) [not null]
-  dni_usuario varchar(20) [unique, note: 'Documento Nacional de Identidad único de la persona titular de la cuenta.']
-  email_usuario varchar(255) [not null, unique]
-  password_hash_usuario varchar(255) [not null, note: 'Contraseña hasheada con BCrypt; nunca se devuelve desde la API.']
-  telefono_usuario varchar(20)
-  estado_usuario estado_usuario [not null, default: 'ACTIVO']
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table persona [headercolor: #ff6363] {
+	id_persona bigint [ pk, increment, not null, note: 'Identificador unico de la persona.' ]
+	dni_persona bigint [ not null, unique, note: 'Identificador unico de la persona.' ]
+	nombre_persona varchar(100) [ not null ]
+	apellido_persona varchar(100) [ not null ]
+	email_persona varchar(255) [ note: 'Email de contacto del titular. Puede no tener cuenta de usuario.' ]
+	telefono_persona varchar(30) [ note: 'Telefono de contacto del titular. Puede no tener cuenta de usuario.' ]
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  indexes {
-    id_rol [name: 'idx_usuario_rol']
-    dni_usuario [name: 'idx_usuario_dni']
-  }
+	indexes {
+		(email_persona) [ name: 'idx_persona_email' ]
+	}
 
-  Note: '''
-  Guarda clientes, organizadores y administradores. El rol determina qué
-  operaciones puede realizar cada usuario. El DNI es único por persona.
-  '''
+	Note: 'Representa la identidad real de una persona. Una persona puede asociarse a varias cuentas y ser titular de distintas entradas. Los datos de contacto permiten notificar al titular aunque no tenga cuenta.'
 }
 
-Table verificacion_identidad {
-  id_verificacion bigint [pk, increment, note: 'Identificador único del registro de verificación KYC.']
-  id_usuario bigint [not null, unique, note: 'Usuario cuya identidad se valida antes de habilitar la compra.']
-  metodo_verificacion metodo_verificacion [not null, default: 'BIOMETRIA_RENAPER']
-  estado_verificacion estado_verificacion [not null, default: 'PENDIENTE']
-  codigo_validacion_kyc varchar(100) [not null, unique, note: 'Token/hash devuelto por el proveedor de identidad (sin guardar biometría cruda por Ley 25.326).']
-  observacion_verificacion varchar(255)
-  fecha_solicitud timestamp [not null, default: `now()`]
-  fecha_verificacion timestamp [note: 'Momento en que la identidad quedó VERIFICADA.']
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table ubicacion [headercolor: #8eb7ff] {
+	id_ubicacion bigint [ pk, increment, not null, note: 'Identificador unico del lugar.' ]
+	nombre_ubicacion varchar(150) [ not null ]
+	direccion_ubicacion varchar(255) [ not null ]
+	capacidad_maxima_ubicacion int [ not null, default: 10000, note: 'Capacidad fisica maxima del recinto para validar que el cupo_total_evento no la supere.' ]
+	activa_ubicacion boolean [ not null, default: true ]
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  indexes {
-    (id_usuario, estado_verificacion) [name: 'idx_verificacion_usuario_estado']
-  }
+	indexes {
+		(nombre_ubicacion, direccion_ubicacion) [ name: 'uq_ubicacion_nombre_direccion', unique ]
+	}
 
-  Note: '''
-  Verifica la identidad del usuario (KYC obligatorio antes de comprar).
-  Cumple 3FN al no duplicar nombre, apellido ni DNI (que residen en usuario) y
-  cumple privacidad informática al almacenar solo el token/hash de validación.
-  '''
+	Note: 'Representa el lugar fisico donde se realiza un evento. Evento guarda solamente la FK de la ubicacion y no repite el nombre o la direccion.'
 }
 
-Table ubicacion {
-  id_ubicacion bigint [pk, increment, note: 'Identificador único del lugar.']
-  nombre_ubicacion varchar(150) [not null]
-  direccion_ubicacion varchar(255) [not null]
-  capacidad_maxima_ubicacion int [not null]
-  activa_ubicacion boolean [not null, default: true]
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table categoria [headercolor: #8eb7ff] {
+	id_categoria bigint [ pk, increment, not null, note: 'Identificador unico de la categoria.' ]
+	nombre_categoria varchar(100) [ not null, unique ]
+	descripcion_categoria text [ not null ]
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  indexes {
-    (nombre_ubicacion, direccion_ubicacion) [unique, name: 'uq_ubicacion_nombre_direccion']
-  }
-
-  checks {
-    `capacidad_maxima_ubicacion > 0` [name: 'chk_ubicacion_capacidad_positiva']
-  }
-
-  Note: '''
-  Representa el lugar físico donde se realiza un evento. Evento guarda solamente
-  la FK de la ubicación y no repite el nombre o la dirección.
-  '''
+	Note: 'Clasifica eventos, por ejemplo Musica, Teatro o Deportes. Una categoria puede utilizarse en muchos eventos.'
 }
 
-Table categoria {
-  id_categoria bigint [pk, increment, note: 'Identificador único de la categoría.']
-  nombre_categoria varchar(100) [not null, unique]
-  descripcion_categoria text
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table evento [headercolor: #8eb7ff] {
+	id_evento bigint [ pk, increment, not null, note: 'Identificador unico del evento.' ]
+	id_usuario_organizador bigint [ not null, note: 'Usuario ORGANIZADOR responsable.' ]
+	id_ubicacion bigint [ not null, note: 'Lugar donde se realiza el evento.' ]
+	id_categoria bigint [ not null, note: 'Categoria utilizada para clasificar el evento.' ]
+	titulo_evento varchar(200) [ not null ]
+	descripcion_evento text
+	fecha_evento date [ not null ]
+	hora_evento time [ not null ]
+	cupo_total_evento int [ not null, note: 'Cantidad maxima de entradas que puede emitir el evento.' ]
+	estado_evento estado_evento [ not null, default: 'BORRADOR' ]
+	imagen_url_evento text
+	version_evento bigint [ not null, default: 0, note: 'Version para control de concurrencia optimista (@Version) al emitir entradas.' ]
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  Note: '''
-  Clasifica eventos, por ejemplo Música, Teatro o Deportes. Una categoría puede
-  utilizarse en muchos eventos.
-  '''
+	indexes {
+		(id_usuario_organizador) [ name: 'idx_evento_organizador' ]
+		(id_ubicacion) [ name: 'idx_evento_ubicacion' ]
+		(id_categoria) [ name: 'idx_evento_categoria' ]
+		(estado_evento, fecha_evento) [ name: 'idx_evento_estado_fecha' ]
+	}
+
+	Note: 'Publicacion creada por un organizador. Los clientes solo pueden ver eventos PUBLICADO que todavia tengan cupo. El cupo disponible se calcula restando del cupo total las entradas CONFIRMADA o USADA. Las tarifas y precios se configuran en tipo_entrada.'
 }
 
-Table evento {
-  id_evento bigint [pk, increment, note: 'Identificador único del evento.']
-  id_organizador bigint [not null, note: 'Usuario ORGANIZADOR responsable.']
-  id_ubicacion bigint [not null, note: 'Lugar donde se realiza el evento.']
-  id_categoria bigint [not null, note: 'Categoría utilizada para clasificar el evento.']
-  titulo_evento varchar(200) [not null]
-  descripcion_evento text
-  fecha_evento date [not null]
-  hora_evento time [not null]
-  precio_actual_entrada decimal(10,2) [not null, note: 'Precio vigente para nuevas compras.']
-  cupo_total_evento int [not null, note: 'Cantidad máxima de entradas que puede emitir el evento.']
-  estado_evento estado_evento [not null, default: 'BORRADOR']
-  imagen_url_evento text
-  version_evento int [not null, default: 0, note: 'Control de concurrencia con @Version.']
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table entrada [headercolor: #4dee8a] {
+	id_entrada bigint [ pk, increment, not null, note: 'Identificador interno del ticket.' ]
+	codigo_unico_entrada uuid [ not null, unique, default: gen_random_uuid(), note: 'Codigo que identifica el ticket y se utiliza para validarlo.' ]
+	id_evento bigint [ not null ]
+	id_tipo_entrada bigint [ note: 'Tarifa aplicada. Nulo en entradas historicas; la aplicacion debe validar que el tipo pertenezca al mismo evento.' ]
+	id_persona_titular bigint [ not null, note: 'Persona titular que utilizara la entrada.' ]
+	id_compra bigint [ note: 'Puede ser nulo para una entrada de cortesia.' ]
+	estado_entrada estado_entrada [ not null, default: 'CONFIRMADA' ]
+	precio_pagado_entrada numeric(12,2) [ not null, note: 'Precio historico al momento de emitir el ticket.' ]
+	moneda_entrada char(3) [ not null, default: 'ARS', note: 'Moneda del precio pagado; se congela junto con el precio historico.' ]
+	fecha_emision_entrada timestamp [ not null, default: now() ]
+	fecha_validacion_entrada timestamp [ note: 'Momento del primer uso; nulo mientras no fue utilizada.' ]
+	version_entrada bigint [ not null, default: 0, note: 'Version para control de concurrencia optimista (@Version) al validar o anular el ticket.' ]
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  indexes {
-    id_organizador [name: 'idx_evento_organizador']
-    id_ubicacion [name: 'idx_evento_ubicacion']
-    id_categoria [name: 'idx_evento_categoria']
-    (estado_evento, fecha_evento) [name: 'idx_evento_estado_fecha']
-  }
+	indexes {
+		(id_evento, estado_entrada) [ name: 'idx_entrada_evento_estado' ]
+		(id_persona_titular, estado_entrada) [ name: 'idx_entrada_titular_estado' ]
+		(id_compra) [ name: 'idx_entrada_compra' ]
+		(id_tipo_entrada) [ name: 'idx_entrada_tipo_entrada' ]
+	}
 
-  checks {
-    `precio_actual_entrada >= 0` [name: 'chk_evento_precio_no_negativo']
-    `cupo_total_evento > 0` [name: 'chk_evento_cupo_positivo']
-    `version_evento >= 0` [name: 'chk_evento_version_no_negativa']
-  }
-
-  Note: '''
-  Publicación creada por un organizador. Los clientes sólo pueden ver eventos
-  PUBLICADO que todavía tengan cupo. El cupo disponible no se guarda: se obtiene
-  restando del cupo total las entradas CONFIRMADA o USADA.
-  '''
+	Note: 'Cada fila es un ticket individual. Una compra de tres tickets crea tres entradas con codigos diferentes. El precio y la moneda se congelan aqui para que una modificacion del evento o de la tarifa no cambie compras anteriores.'
 }
 
-Table compra {
-  id_compra bigint [pk, increment, note: 'Identificador único de la operación.']
-  id_cliente bigint [not null, note: 'Usuario verificado que realiza la compra.']
-  fecha_compra timestamp [not null, default: `now()`]
-  estado_compra estado_compra [not null, default: 'PENDIENTE']
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table compra [headercolor: #4dee8a] {
+	id_compra bigint [ pk, increment, not null, note: 'Identificador unico de la operacion.' ]
+	id_usuario_comprador bigint [ not null, note: 'Usuario que realiza la compra.' ]
+	fecha_compra timestamp [ not null, default: now() ]
+	estado_compra estado_compra [ not null, default: 'PENDIENTE' ]
+	moneda_compra char(3) [ not null, default: 'ARS', note: 'Moneda de la compra; debe coincidir con la de sus pagos y reembolsos.' ]
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  indexes {
-    (id_cliente, fecha_compra) [name: 'idx_compra_cliente_fecha']
-  }
+	indexes {
+		(id_usuario_comprador, fecha_compra) [ name: 'idx_compra_usuario_fecha' ]
+	}
 
-  Note: '''
-  Cabecera de la operación. No contiene evento, cantidad ni total para evitar
-  inconsistencias (3FN): esos datos se obtienen consultando las entradas de la compra.
-  '''
+	Note: 'Cabecera de la operacion. No contiene evento, cantidad ni total para evitar inconsistencias: esos datos se obtienen consultando las entradas de la compra. La moneda se fija aca y debe coincidir con la de los pagos.'
 }
 
-Table pago {
-  id_pago bigint [pk, increment, note: 'Identificador único de la transacción de pasarela.']
-  id_compra bigint [not null, note: 'Compra asociada a este intento/operación de pago.']
-  pasarela_pago pasarela_pago [not null, default: 'MERCADOPAGO']
-  medio_pago medio_pago [not null, default: 'TARJETA_CREDITO']
-  estado_pago estado_pago [not null, default: 'APROBADO']
-  referencia_externa_pago varchar(120) [not null, unique, note: 'ID de transacción/token de idempotencia en la pasarela externa.']
-  ultimos_cuatro_digitos varchar(4) [note: 'Cumplimiento PCI-DSS: solo últimos 4 dígitos visibles; jamás se guarda PAN ni CVV.']
-  fecha_pago timestamp [not null, default: `now()`]
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table notificacion [headercolor: #8eb7ff] {
+	id_notificacion bigint [ pk, increment, not null ]
+	id_usuario bigint [ not null ]
+	id_evento bigint [ note: 'Opcional: una notificacion general no necesita evento.' ]
+	id_compra bigint
+	tipo_notificacion varchar(20) [ not null, default: 'INFO' ]
+	asunto_notificacion varchar(200)
+	mensaje_notificacion text [ not null ]
+	estado_envio_notificacion estado_envio_notificacion [ not null ]
+	leida_notificacion boolean [ not null, default: false, note: 'Indica si el usuario destinatario ya marco la notificacion como leida en su bandeja.' ]
+	fecha_envio_notificacion timestamp
+	error_envio text
+	created_at timestamp [ not null, default: now() ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicación o un trigger.' ]
 
-  indexes {
-    id_compra [name: 'idx_pago_compra']
-  }
+	indexes {
+		(id_usuario, created_at) [ name: 'idx_notificacion_usuario_fecha' ]
+		(id_evento) [ name: 'idx_notificacion_evento' ]
+		(id_compra) [ name: 'idx_notificacion_compra' ]
+	}
 
-  Note: '''
-  Transacción procesada por la pasarela de pago. Cumple 3FN al no duplicar el monto
-  total ni el id_cliente (se obtienen desde compra y sus entradas) y cumple PCI-DSS
-  al almacenar únicamente tokens y referencias externas sin datos sensibles de tarjeta.
-  '''
+	Note: '''Mensaje enviado a un usuario, por ejemplo una compra confirmada o la cancelacion de un evento. La relacion con evento es opcional.
+
+CHECK constraints:
+- fecha_envio_notificacion IS NULL OR fecha_envio_notificacion >= created_at'''
 }
 
-Table comprobante {
-  id_comprobante bigint [pk, increment, note: 'Identificador único del comprobante emitido.']
-  id_pago bigint [not null, unique, note: 'Pago aprobado que origina este comprobante (3FN: evita duplicar id_compra e id_cliente).']
-  numero_comprobante varchar(50) [not null, unique, note: 'Número fiscal/operativo único del comprobante.']
-  tipo_comprobante tipo_comprobante [not null, default: 'RECIBO_DIGITAL']
-  hash_cruce_seguridad varchar(64) [not null, unique, note: 'Firma SHA-256 que cruza compra, DNI verificado, pago y UUIDs de entradas emitidas.']
-  estado_envio_comprobante estado_envio [not null, default: 'ENVIADO', note: 'Estado del envío digital de entradas y comprobante al cliente.']
-  fecha_emision_comprobante timestamp [not null, default: `now()`]
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table tipo_entrada [headercolor: #4dee8a] {
+	id_tipo_entrada bigint [ pk, increment, not null, note: 'Identificador unico de la tarifa.' ]
+	id_evento bigint [ not null, note: 'Evento al que pertenece la tarifa.' ]
+	nombre_tipo_entrada varchar(100) [ not null, note: 'Nombre visible de la tarifa, por ejemplo General, VIP o Preventa.' ]
+	descripcion_tipo_entrada text [ note: 'Descripcion o condiciones de la tarifa.' ]
+	precio_tipo_entrada numeric(12,2) [ not null, note: 'Precio de lista de la tarifa.' ]
+	moneda_tipo_entrada char(3) [ not null, default: 'ARS', note: 'Moneda del precio de lista.' ]
+	activo_tipo_entrada boolean [ not null, default: true, note: 'Indica si la tarifa esta disponible para nuevas compras.' ]
+	created_at timestamp [ not null, default: now(), note: 'Auditoria tecnica.' ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicacion o un trigger.' ]
 
-  Note: '''
-  Resultado del método de cruce de información al comprar: vincula el pago aprobado,
-  el envío de entradas y el hash criptográfico de integridad (SHA-256). Al referenciar
-  a id_pago (UNIQUE), cumple 3FN sin dependencias transitivas hacia compra o usuario.
-  '''
+	indexes {
+		(id_evento) [ name: 'idx_tipo_entrada_evento' ]
+		(id_evento, nombre_tipo_entrada) [ name: 'uq_tipo_entrada_evento_nombre', unique ]
+	}
+
+	Note: 'Tarifa configurada por evento (general, VIP, preventa, etc.). El precio de lista vive aca; entrada.precio_pagado conserva el precio historico.'
 }
 
-Table entrada {
-  id_entrada bigint [pk, increment, note: 'Identificador interno del ticket.']
-  codigo_unico_entrada uuid [not null, unique, default: `gen_random_uuid()`, note: 'Código UUID que identifica el ticket en el QR.']
-  id_evento bigint [not null]
-  id_cliente bigint [not null, note: 'Usuario titular en cuenta que administra la entrada.']
-  id_compra bigint [note: 'Puede ser nulo para una entrada de cortesía.']
-  dni_asistente_entrada varchar(20) [not null, note: 'Documento nominal del asistente que ingresará físicamente al evento.']
-  nombre_asistente_entrada varchar(150) [not null, note: 'Nombre y apellido nominal impreso en el ticket al momento de emisión.']
-  estado_entrada estado_entrada [not null, default: 'CONFIRMADA']
-  precio_pagado_entrada decimal(10,2) [not null, note: 'Precio histórico congelado al momento de emitir el ticket.']
-  fecha_emision_entrada timestamp [not null, default: `now()`]
-  fecha_validacion_entrada timestamp [note: 'Momento del primer uso en puerta; nulo mientras no fue utilizada.']
-  version_entrada int [not null, default: 0, note: 'Evita validar dos veces el mismo ticket en simultáneo (@Version).']
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table pago [headercolor: #fbbf24] {
+	id_pago bigint [ pk, increment, not null, note: 'Identificador unico del pago.' ]
+	id_compra bigint [ not null, note: 'Compra a la que corresponde el pago.' ]
+	proveedor_pago varchar(50) [ not null, note: 'Proveedor o medio: MERCADO_PAGO, STRIPE, MANUAL, etc.' ]
+	referencia_externa_pago varchar(255) [ note: 'Identificador del pago en el proveedor. Unico junto con el proveedor.' ]
+	monto_pago numeric(12,2) [ not null, note: 'Monto efectivamente cobrado o intentado.' ]
+	moneda_pago char(3) [ not null, default: 'ARS', note: 'Moneda del pago.' ]
+	estado_pago estado_pago [ not null, default: 'PENDIENTE', note: 'Estado del pago: PENDIENTE, APROBADO, RECHAZADO, REEMBOLSADO o CANCELADO.' ]
+	fecha_creacion_pago timestamp [ not null, default: now(), note: 'Fecha de creacion del intento de pago en el proveedor.' ]
+	fecha_confirmacion_pago timestamp [ note: 'Fecha en que el proveedor confirmo el pago.' ]
+	respuesta_proveedor_pago text [ note: 'Respuesta cruda del proveedor, serializada como JSON o texto.' ]
+	created_at timestamp [ not null, default: now(), note: 'Auditoria tecnica.' ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicacion o un trigger.' ]
 
-  indexes {
-    (id_evento, estado_entrada) [name: 'idx_entrada_evento_estado']
-    (id_cliente, estado_entrada) [name: 'idx_entrada_cliente_estado']
-    (id_evento, dni_asistente_entrada) [name: 'idx_entrada_evento_dni_nominal']
-    id_compra [name: 'idx_entrada_compra']
-  }
+	indexes {
+		(id_compra) [ name: 'idx_pago_compra' ]
+		(estado_pago, fecha_creacion_pago) [ name: 'idx_pago_estado_fecha' ]
+		(proveedor_pago, referencia_externa_pago) [ name: 'uq_pago_proveedor_referencia', unique ]
+	}
 
-  checks {
-    `precio_pagado_entrada >= 0` [name: 'chk_entrada_precio_no_negativo']
-    `((estado_entrada = 'USADA' AND fecha_validacion_entrada IS NOT NULL) OR (estado_entrada <> 'USADA' AND fecha_validacion_entrada IS NULL))` [name: 'chk_entrada_validacion_coherente']
-    `version_entrada >= 0` [name: 'chk_entrada_version_no_negativa']
-  }
-
-  Note: '''
-  Cada fila es un ticket individual y NOMINAL. Permite que un comprador verificado
-  adquiera varias entradas asignando el DNI y nombre de cada asistente real, evitando
-  la reventa y permitiendo verificar QR + DNI físico en puerta.
-  '''
+	Note: 'Intento o confirmacion de pago de una compra. Una compra puede tener varios intentos; la aplicacion debe garantizar un solo pago APROBADO por compra.'
 }
 
-Table historial_estado_entrada {
-  id_historial_entrada bigint [pk, increment]
-  id_entrada bigint [not null]
-  estado_anterior_entrada estado_entrada
-  estado_nuevo_entrada estado_entrada [not null]
-  id_usuario_responsable bigint [note: 'Usuario que realizó el cambio; puede ser nulo si fue automático.']
-  motivo_cambio_entrada varchar(300)
-  fecha_cambio_entrada timestamp [not null, default: `now()`]
+Table reembolso [headercolor: #fbbf24] {
+	id_reembolso bigint [ pk, increment, not null, note: 'Identificador unico del reembolso.' ]
+	id_pago bigint [ not null, note: 'Pago sobre el que se realiza la devolucion.' ]
+	monto_reembolso numeric(12,2) [ not null, note: 'Monto devuelto.' ]
+	moneda_reembolso char(3) [ not null, default: 'ARS', note: 'Moneda del reembolso.' ]
+	motivo_reembolso text [ note: 'Motivo de la devolucion.' ]
+	estado_reembolso estado_reembolso [ not null, default: 'PENDIENTE', note: 'Estado del reembolso: PENDIENTE, APROBADO, RECHAZADO, PROCESADO o CANCELADO.' ]
+	referencia_externa_reembolso varchar(255) [ note: 'Identificador del reembolso en el proveedor.' ]
+	fecha_solicitud_reembolso timestamp [ not null, default: now(), note: 'Fecha en que se solicito la devolucion.' ]
+	fecha_procesamiento_reembolso timestamp [ note: 'Fecha en que el reembolso fue procesado.' ]
+	created_at timestamp [ not null, default: now(), note: 'Auditoria tecnica.' ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicacion o un trigger.' ]
 
-  indexes {
-    (id_entrada, fecha_cambio_entrada) [name: 'idx_historial_entrada_fecha']
-  }
+	indexes {
+		(id_pago) [ name: 'idx_reembolso_pago' ]
+		(estado_reembolso, fecha_solicitud_reembolso) [ name: 'idx_reembolso_estado_fecha' ]
+		(referencia_externa_reembolso) [ name: 'uq_reembolso_referencia_externa', unique ]
+	}
 
-  checks {
-    `estado_anterior_entrada IS NULL OR estado_anterior_entrada <> estado_nuevo_entrada` [name: 'chk_historial_entrada_cambio_real']
-  }
-
-  Note: '''
-  Trazabilidad específica del ciclo de vida del ticket. Registra cuándo fue emitido,
-  validado en puerta o anulado.
-  '''
+	Note: 'Devolucion total o parcial asociada a un pago. Varios reembolsos pueden existir para un mismo pago; la aplicacion debe validar que la suma no supere el monto pagado.'
 }
 
-Table notificacion {
-  id_notificacion bigint [pk, increment]
-  id_usuario_destinatario bigint [not null]
-  id_evento_relacionado bigint [note: 'Opcional: una notificación general no necesita evento.']
-  mensaje_notificacion text [not null]
-  tipo_notificacion varchar(20) [not null, default: 'INFO']
-  leida_notificacion boolean [not null, default: false]
-  fecha_creacion_notificacion timestamp [not null, default: `now()`]
-  fecha_envio_notificacion timestamp
-  created_at timestamp [not null, default: `now()`]
-  updated_at timestamp
+Table verificacion_identidad [headercolor: #ff6363] {
+	id_verificacion bigint [ pk, increment, not null, note: 'Identificador unico de la verificacion KYC.' ]
+	id_usuario bigint [ not null, unique, note: 'Cuenta de usuario verificada (relacion 1 a 1).' ]
+	metodo_verificacion metodo_verificacion [ not null, default: 'BIOMETRIA_RENAPER', note: 'Canal utilizado para validar la identidad: BIOMETRIA_RENAPER, DOCUMENTO_DNI u OTP_EMAIL.' ]
+	estado_verificacion estado_verificacion [ not null, default: 'PENDIENTE', note: 'Estado del tramite KYC: PENDIENTE, VERIFICADA o RECHAZADA.' ]
+	codigo_validacion_kyc varchar(100) [ not null, unique, note: 'Token o codigo externo unico devuelto por el validador de identidad.' ]
+	observacion_verificacion varchar(255) [ note: 'Detalle o motivo de aprobacion/rechazo de la validacion.' ]
+	fecha_solicitud timestamp [ not null, default: now(), note: 'Momento en que se inicio la validacion KYC.' ]
+	fecha_verificacion timestamp [ note: 'Momento en que se resolvio la verificacion.' ]
+	created_at timestamp [ not null, default: now(), note: 'Auditoria tecnica.' ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicacion o un trigger.' ]
+	hash_evidencia_documental varchar(64)
+	hash_selfie varchar(64)
+	proveedor_identidad varchar(60)
+	puntaje_coincidencia decimal(5,4)
 
-  indexes {
-    (id_usuario_destinatario, fecha_creacion_notificacion) [name: 'idx_notificacion_usuario_fecha']
-    id_evento_relacionado [name: 'idx_notificacion_evento']
-  }
+	indexes {
+		(estado_verificacion) [ name: 'idx_verificacion_estado' ]
+		(id_usuario) [ name: 'idx_verificacion_usuario', unique ]
+	}
 
-  checks {
-    `fecha_envio_notificacion IS NULL OR fecha_envio_notificacion >= fecha_creacion_notificacion` [name: 'chk_notificacion_fecha_envio']
-  }
-
-  Note: '''
-  Mensaje enviado a un usuario (ej. confirmación de cruce de compra, envío de
-  comprobante y entradas, verificación KYC o cancelación de evento).
-  '''
+	Note: 'Validacion KYC obligatoria del usuario antes de comprar entradas. No duplica DNI ni nombre porque se obtienen a traves de usuario -> persona.'
 }
 
-Table auditoria_seguridad {
-  id_auditoria bigint [pk, increment, note: 'Identificador único del evento de tracking.']
-  id_usuario bigint [note: 'Usuario que ejecutó la acción; nulo en intentos anónimos fallidos.']
-  accion_auditoria varchar(50) [not null, note: 'LOGIN, REGISTRO, VERIFICACION_KYC, CRUCE_COMPRA, PAGO_PASARELA, VALIDACION_PUERTA.']
-  entidad_afectada varchar(50) [not null, note: 'Tabla/entidad sobre la que impactó la acción.']
-  id_registro_afectado bigint [note: 'ID de la fila afectada en la entidad correspondiente.']
-  resultado_auditoria varchar(20) [not null, default: 'EXITOSO', note: 'EXITOSO, RECHAZADO o BLOQUEADO.']
-  ip_origen varchar(45) [note: 'Dirección IPv4/IPv6 para análisis antifraude y seguridad informática.']
-  detalle_tracking varchar(500) [not null, note: 'Descripción trazable sin exponer datos sensibles.']
-  fecha_auditoria timestamp [not null, default: `now()`]
+Table comprobante [headercolor: #fbbf24] {
+	id_comprobante bigint [ pk, increment, not null, note: 'Identificador unico del comprobante emitido.' ]
+	id_pago bigint [ not null, unique, note: 'Pago aprobado que respalda el comprobante (relacion 1 a 1).' ]
+	numero_comprobante varchar(50) [ not null, unique, note: 'Numero correlativo legible del recibo o factura.' ]
+	tipo_comprobante tipo_comprobante [ not null, default: 'RECIBO_DIGITAL', note: 'Tipo de documento: RECIBO_DIGITAL, FACTURA_B o FACTURA_C.' ]
+	hash_cruce_seguridad varchar(64) [ not null, unique, note: 'Firma SHA-256 de integridad que cruza pago, compra y titular.' ]
+	estado_envio_comprobante estado_envio_comprobante [ not null, default: 'ENVIADO', note: 'Estado del envio digital: PENDIENTE, ENVIADO o ERROR_ENVIO.' ]
+	fecha_emision_comprobante timestamp [ not null, default: now(), note: 'Fecha y hora de emision del comprobante.' ]
+	created_at timestamp [ not null, default: now(), note: 'Auditoria tecnica.' ]
+	updated_at timestamp [ default: now(), note: 'Se actualiza en cada UPDATE desde la aplicacion o un trigger.' ]
 
-  indexes {
-    (id_usuario, fecha_auditoria) [name: 'idx_auditoria_usuario_fecha']
-    (accion_auditoria, fecha_auditoria) [name: 'idx_auditoria_accion_fecha']
-  }
+	indexes {
+		(fecha_emision_comprobante) [ name: 'idx_comprobante_fecha' ]
+		(id_pago) [ name: 'idx_comprobante_pago', unique ]
+	}
 
-  Note: '''
-  Bitácora inmutable (append-only) para trackear datos operativos y de seguridad
-  informática (cumplimiento OWASP Logging & Monitoring / ISO 27001).
-  '''
+	Note: 'Recibo o factura digital emitida al aprobarse un pago. Incluye firma SHA-256 de cruce de seguridad sin duplicar id_compra ni id_usuario.'
 }
 
-Ref fk_usuario_rol: usuario.id_rol > rol.id_rol [delete: restrict, update: cascade]
-Ref fk_verificacion_usuario: verificacion_identidad.id_usuario - usuario.id_usuario [delete: restrict, update: cascade]
+Table historial_estado_entrada [headercolor: #4dee8a] {
+	id_historial_entrada bigint [ pk, increment, not null, note: 'Identificador unico del cambio de estado del ticket.' ]
+	id_entrada bigint [ not null, note: 'Entrada cuyo cambio de estado se audita.' ]
+	id_usuario_responsable bigint [ note: 'Usuario (cliente, organizador o admin) que ejecuto el cambio de estado.' ]
+	estado_anterior_entrada estado_entrada [ note: 'Estado previo del ticket (nulo en el alta inicial).' ]
+	estado_nuevo_entrada estado_entrada [ not null, note: 'Nuevo estado asignado al ticket: CONFIRMADA, USADA o ANULADA.' ]
+	motivo_cambio_entrada varchar(300) [ note: 'Motivo o contexto del cambio (ej. emision, lectura QR en puerta, anulacion).' ]
+	fecha_cambio_entrada timestamp [ not null, default: now(), note: 'Fecha y hora exacta de la transicion de estado.' ]
 
-Ref fk_evento_organizador: evento.id_organizador > usuario.id_usuario [delete: restrict, update: cascade]
-Ref fk_evento_ubicacion: evento.id_ubicacion > ubicacion.id_ubicacion [delete: restrict, update: cascade]
-Ref fk_evento_categoria: evento.id_categoria > categoria.id_categoria [delete: restrict, update: cascade]
+	indexes {
+		(id_entrada, fecha_cambio_entrada) [ name: 'idx_historial_entrada_fecha' ]
+		(id_usuario_responsable) [ name: 'idx_historial_usuario_resp' ]
+	}
 
-Ref fk_compra_cliente: compra.id_cliente > usuario.id_usuario [delete: restrict, update: cascade]
-Ref fk_pago_compra: pago.id_compra > compra.id_compra [delete: restrict, update: cascade]
-Ref fk_comprobante_pago: comprobante.id_pago - pago.id_pago [delete: restrict, update: cascade]
-
-Ref fk_entrada_evento: entrada.id_evento > evento.id_evento [delete: restrict, update: cascade]
-Ref fk_entrada_cliente: entrada.id_cliente > usuario.id_usuario [delete: restrict, update: cascade]
-Ref fk_entrada_compra: entrada.id_compra >? compra.id_compra [delete: restrict, update: cascade]
-
-Ref fk_historial_entrada: historial_estado_entrada.id_entrada > entrada.id_entrada [delete: restrict, update: cascade]
-Ref fk_historial_responsable: historial_estado_entrada.id_usuario_responsable >? usuario.id_usuario [delete: restrict, update: cascade]
-
-Ref fk_notificacion_usuario: notificacion.id_usuario_destinatario > usuario.id_usuario [delete: restrict, update: cascade]
-Ref fk_notificacion_evento: notificacion.id_evento_relacionado >? evento.id_evento [delete: set null, update: cascade]
-
-Ref fk_auditoria_usuario: auditoria_seguridad.id_usuario >? usuario.id_usuario [delete: set null, update: cascade]
-
-TableGroup identidad_y_usuarios [color: #2563EB] {
-  rol
-  usuario
-  verificacion_identidad
+	Note: 'Trazabilidad completa del ciclo de vida de cada entrada: emision inicial (CONFIRMADA), validacion nominal en puerta (USADA) o anulacion (ANULADA).'
 }
 
-TableGroup catalogo_eventos [color: #16A34A] {
-  ubicacion
-  categoria
-  evento
+Table auditoria_seguridad [headercolor: #c084fc] {
+	id_auditoria bigint [ pk, increment, not null, note: 'Identificador unico del evento de seguridad.' ]
+	id_usuario bigint [ note: 'Usuario actor que ejecuto la accion (nulo si fue un intento fallido anonimo).' ]
+	accion_auditoria varchar(50) [ not null, note: 'Codigo de la accion auditada (LOGIN_EXITOSO, COMPRA_CONFIRMADA, VALIDACION_PUERTA, etc.).' ]
+	entidad_afectada varchar(50) [ not null, note: 'Nombre de la tabla o entidad de negocio involucrada.' ]
+	id_registro_afectado bigint [ note: 'ID primario del registro afectado dentro de la entidad.' ]
+	resultado_auditoria varchar(20) [ not null, default: 'EXITOSO', note: 'Resultado de la operacion: EXITOSO, RECHAZADO o ERROR.' ]
+	ip_origen varchar(45) [ note: 'Direccion IPv4 o IPv6 desde donde se origino la peticion.' ]
+	detalle_tracking varchar(500) [ not null, note: 'Descripcion inmutable del evento para analisis forense.' ]
+	fecha_auditoria timestamp [ not null, default: now(), note: 'Marca de tiempo inmutable (append-only) del evento.' ]
+
+	indexes {
+		(id_usuario, fecha_auditoria) [ name: 'idx_auditoria_usuario_fecha' ]
+		(entidad_afectada, id_registro_afectado) [ name: 'idx_auditoria_entidad_registro' ]
+		(accion_auditoria, fecha_auditoria) [ name: 'idx_auditoria_accion_fecha' ]
+	}
+
+	Note: 'Bitacora inmutable (append-only) de seguridad informatica y auditoria de operaciones criticas (login, KYC, compras, validacion en puerta).'
 }
 
-TableGroup ventas_pagos_y_entradas [color: #EA580C] {
-  compra
-  pago
-  comprobante
-  entrada
+Ref fk_usuario_persona {
+	persona.id_persona < usuario.id_persona [ delete: set null, update: cascade ]
 }
 
-TableGroup trazabilidad_y_seguridad [color: #7C3AED] {
-  historial_estado_entrada
-  notificacion
-  auditoria_seguridad
+Ref fk_usuario_rol {
+	rol.id_rol < usuario.id_rol [ delete: restrict, update: cascade ]
+}
+
+Ref fk_evento_organizador {
+	usuario.id_usuario < evento.id_usuario_organizador [ delete: restrict, update: cascade ]
+}
+
+Ref fk_evento_ubicacion {
+	ubicacion.id_ubicacion < evento.id_ubicacion [ delete: restrict, update: cascade ]
+}
+
+Ref fk_evento_categoria {
+	categoria.id_categoria < evento.id_categoria [ delete: restrict, update: cascade ]
+}
+
+Ref fk_compra_usuario {
+	usuario.id_usuario < compra.id_usuario_comprador [ delete: restrict, update: cascade ]
+}
+
+Ref fk_entrada_compra {
+	compra.id_compra < entrada.id_compra [ delete: restrict, update: cascade ]
+}
+
+Ref fk_entrada_evento {
+	evento.id_evento < entrada.id_evento [ delete: restrict, update: cascade ]
+}
+
+Ref fk_entrada_titular {
+	persona.id_persona < entrada.id_persona_titular [ delete: restrict, update: cascade ]
+}
+
+Ref fk_notificacion_usuario {
+	usuario.id_usuario < notificacion.id_usuario [ delete: cascade, update: cascade ]
+}
+
+Ref fk_notificacion_evento {
+	evento.id_evento < notificacion.id_evento [ delete: set null, update: cascade ]
+}
+
+Ref fk_compra_id_compra_notificacion {
+	compra.id_compra < notificacion.id_compra [ delete: set null, update: cascade ]
+}
+
+Ref fk_tipo_entrada_evento {
+	evento.id_evento < tipo_entrada.id_evento [ delete: restrict, update: cascade ]
+}
+
+Ref fk_entrada_tipo_entrada {
+	tipo_entrada.id_tipo_entrada < entrada.id_tipo_entrada [ delete: restrict, update: cascade ]
+}
+
+Ref fk_pago_compra {
+	compra.id_compra < pago.id_compra [ delete: restrict, update: cascade ]
+}
+
+Ref fk_reembolso_pago {
+	pago.id_pago < reembolso.id_pago [ delete: restrict, update: cascade ]
+}
+
+Ref fk_verificacion_usuario {
+	verificacion_identidad.id_usuario - usuario.id_usuario [ delete: cascade, update: cascade ]
+}
+
+Ref fk_comprobante_pago {
+	comprobante.id_pago - pago.id_pago [ delete: restrict, update: cascade ]
+}
+
+Ref fk_historial_entrada {
+	entrada.id_entrada < historial_estado_entrada.id_entrada [ delete: cascade, update: cascade ]
+}
+
+Ref fk_historial_usuario_responsable {
+	usuario.id_usuario < historial_estado_entrada.id_usuario_responsable [ delete: set null, update: cascade ]
+}
+
+Ref fk_auditoria_usuario {
+	usuario.id_usuario < auditoria_seguridad.id_usuario [ delete: set null, update: cascade ]
 }

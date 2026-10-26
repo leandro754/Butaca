@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -33,6 +34,15 @@ public class PagoResponseDTO {
 
     @JsonProperty("ultimos_cuatro_digitos")
     private String ultimosCuatroDigitos;
+
+    @JsonProperty("monto")
+    private BigDecimal monto;
+
+    @JsonProperty("moneda")
+    private String moneda;
+
+    @JsonProperty("codigo_autorizacion")
+    private String codigoAutorizacion;
 
     @JsonProperty("fecha_pago")
     private LocalDateTime fechaPago;

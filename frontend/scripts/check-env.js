@@ -8,7 +8,7 @@ const isSupported =
 if (!isSupported) {
   console.error("Este frontend requiere Node.js 20.19+, 22.12+ o superior.");
   console.error(`Version detectada: ${process.version}`);
-  console.error("Actualiza Node antes de ejecutar npm install, npm run dev o npm run build.");
+  console.error("Actualiza Node antes de ejecutar pnpm install, pnpm run dev o pnpm run build.");
   process.exit(1);
 }
 

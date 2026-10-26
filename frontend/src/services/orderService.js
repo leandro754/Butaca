@@ -1,8 +1,6 @@
 import { request } from "./apiClient";
 import { getEventById } from "./eventService";
 
-export const useMockOrders = false;
-
 const AUTH_STORAGE_KEY = "butaca-auth-user";
 
 function getStoredUser() {
@@ -11,15 +9,6 @@ function getStoredUser() {
 }
 
 export async function createOrder(orderData) {
-  if (useMockOrders) {
-    return {
-      codigoReserva: `BTC-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-      total: orderData.total,
-      comprador: orderData.comprador,
-      entradas: [],
-    };
-  }
-
   const storedUser = getStoredUser();
   const usuarioId =
     orderData.usuarioId || storedUser?.id_usuario || storedUser?.id;
@@ -50,6 +39,7 @@ export async function createOrder(orderData) {
     pasarela_pago: orderData.pasarelaPago || "MERCADOPAGO",
     medio_pago: orderData.medioPago || "TARJETA_CREDITO",
     ultimos_cuatro_digitos: orderData.ultimosCuatroDigitos || "4242",
+    token_pago: orderData.tokenPago,
     tipo_comprobante: orderData.tipoComprobante || "RECIBO_DIGITAL",
     asistentes: orderData.asistentes || [],
   };
@@ -115,6 +105,10 @@ export async function getUserOrders(userId) {
       evento: events.get(ticket.evento_id) || null,
     })),
   }));
+}
+
+export async function verifyPurchaseCrossCheck(compraId) {
+  return request(`/compras/${compraId}/verificar-cruce`);
 }
 
 export async function getOrganizerOrders(organizerId) {

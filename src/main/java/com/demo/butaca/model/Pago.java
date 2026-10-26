@@ -105,7 +105,13 @@ public class Pago extends AuditableEntity {
     }
 
     public MedioPago getMedioPago() {
-        return medioPago != null ? medioPago : MedioPago.TARJETA_CREDITO;
+        if (medioPago != null) return medioPago;
+        String medio = datoProveedor("medio");
+        if (medio != null) {
+            try { return MedioPago.valueOf(medio); }
+            catch (IllegalArgumentException ignored) { }
+        }
+        return MedioPago.TARJETA_CREDITO;
     }
 
     public String getUltimosCuatroDigitos() {
@@ -127,4 +133,20 @@ public class Pago extends AuditableEntity {
         }
         return fechaConfirmacionPago != null ? fechaConfirmacionPago : fechaCreacionPago;
     }
+    public BigDecimal getMonto() { return montoPago; }
+
+    public String getMoneda() { return monedaPago; }
+
+    public String getCodigoAutorizacion() {
+        return datoProveedor("auth");
+    }
+
+    private String datoProveedor(String clave) {
+        if (respuestaProveedorPago == null) return null;
+        for (String dato : respuestaProveedorPago.split("\\|")) {
+            if (dato.startsWith(clave + "=")) return dato.substring(clave.length() + 1);
+        }
+        return null;
+    }
+
 }

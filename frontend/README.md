@@ -1,66 +1,42 @@
-# Frontend Butaca
+# Frontend de Butaca
 
-Aplicacion React + Vite conectada al backend Spring Boot de Butaca.
+Interfaz React + Vite conectada a la API Spring Boot. Los comandos de arranque integral están en el [README del proyecto](../README.md).
 
-## Requisitos
+## Ejecución independiente
 
-- Node.js `>=20.19.0` o `>=22.12.0` (`../.nvmrc` fija `22.20.0`).
-- pnpm `>=11.3.0`.
-- Backend corriendo en `http://localhost:8080`.
-
-## Configuracion
-
-Para la demo completa desde la raiz del repo:
-
-```bash
-../scripts/demo.sh
-```
-
-Para ejecutar solo el frontend:
+Con el backend en `http://localhost:8081`, ejecutar desde esta carpeta:
 
 ```bash
 cp .env.example .env
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-Variable disponible:
+Se requiere Node compatible con [`.nvmrc`](../.nvmrc) y pnpm 9 o superior. Si pnpm no está en el PATH y está disponible Corepack, usar `corepack pnpm` en los comandos.
 
-```env
-VITE_API_BASE_URL=http://localhost:8080/api
-```
+`VITE_API_BASE_URL` permite elegir la API; el fallback es `http://localhost:8080/api`. Se puede copiar `.env.example` a `.env` para configurarlo localmente. Vite necesita reiniciarse después de cambiar esa variable.
 
-## Scripts
+Los scripts integrales usan `VITE_API_BASE_URL=/api` y el proxy de Vite. `BUTACA_BACKEND_URL` configura el destino del proxy; por defecto es `http://localhost:8081`.
 
-```bash
-pnpm run dev
-pnpm run build
-pnpm run preview
-```
+## Comandos
 
-`pnpm run build` genera `frontend/dist/` localmente. Esa carpeta esta ignorada por Git y no forma parte del codigo fuente.
+| Comando | Resultado |
+| --- | --- |
+| `pnpm run dev` | Servidor de desarrollo en el puerto 5173 |
+| `pnpm run build` | Compilación en `dist/` usando la configuración local de API |
+| `pnpm run build:demo` | Compilación en `dist/` con API relativa `/api`, para Spring Boot |
+| `pnpm run preview` | Vista previa local del build; requiere configurar la API o un proxy aparte si el build usa `/api` |
 
-## Pantallas
+La salida `dist/` está ignorada por Git. Maven la incorpora como recursos estáticos al compilar/empaquetar el backend. No se versionan bundles ni `node_modules/`.
 
-- Home y busqueda de eventos publicados.
-- Detalle de evento y seleccion de cantidad.
-- Checkout y confirmacion con UUID de entradas.
-- Login y registro contra `/api/auth`.
-- Dashboard por rol:
-  - `ADMIN`: metricas, categorias y ubicaciones.
-  - `ORGANIZADOR`: eventos propios y compras recibidas.
-  - `CLIENTE`: compras y notificaciones.
+## Organización
 
-## Servicios
+- `src/pages/`: catálogo, autenticación, compra y paneles por rol.
+- `src/components/`: componentes compartidos.
+- `src/services/`: acceso a la API y normalización de respuestas.
+- `src/utils/`: autenticación local, selección de compra, formatos y QR.
+- `src/styles/`: estilos de la aplicación.
 
-- `apiClient.js`: cliente HTTP base.
-- `authService.js`: login, registro y normalizacion de usuario.
-- `eventService.js`: eventos, categorias, ubicaciones y dashboard admin.
-- `orderService.js`: compras, compras por usuario/organizador y notificaciones.
+La clave de autenticación local es `butaca-auth-user`. Las cuentas y compras se resuelven contra endpoints reales; los adaptadores KYC y de pago del backend son simulados.
 
-Si Vite falla por una dependencia nativa opcional de Rolldown en WSL, ejecutar de nuevo:
-
-```bash
-pnpm install
-pnpm run build
-```
+Ante errores de bindings nativos de Rolldown en WSL, ejecutar `pnpm install` desde WSL dentro de esta carpeta y volver a compilar. No mezclar instalaciones de dependencias entre Windows y WSL.

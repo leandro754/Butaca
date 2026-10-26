@@ -17,6 +17,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -53,6 +54,18 @@ public class VerificacionIdentidad extends AuditableEntity {
 
     @Column(name = "observacion_verificacion", length = 255)
     private String observacionVerificacion;
+
+    @Column(name = "hash_evidencia_documental", length = 64)
+    private String hashEvidenciaDocumental;
+
+    @Column(name = "hash_selfie", length = 64)
+    private String hashSelfie;
+
+    @Column(name = "proveedor_identidad", length = 60)
+    private String proveedorIdentidad;
+
+    @Column(name = "puntaje_coincidencia", precision = 5, scale = 4)
+    private BigDecimal puntajeCoincidencia;
 
     @Column(name = "fecha_solicitud", nullable = false)
     private LocalDateTime fechaSolicitud;

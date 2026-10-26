@@ -1,21 +1,17 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
 export async function request(path, options = {}) {
+  const { headers: optionHeaders, ...rest } = options;
+  const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData;
+  const headers = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(optionHeaders || {})
+  };
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-    });
+    response = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers });
   } catch (error) {
-    throw new Error(
-      "No pudimos conectar con Butaca. Intentá de nuevo en unos instantes.",
-      { cause: error },
-    );
+    throw new Error("No pudimos conectar con Butaca. Intenta de nuevo en unos instantes.", { cause: error });
   }
 
   if (!response.ok) {

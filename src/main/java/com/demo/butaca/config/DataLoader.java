@@ -25,6 +25,7 @@ import com.demo.butaca.model.TipoComprobante;
 import com.demo.butaca.model.Ubicacion;
 import com.demo.butaca.model.Usuario;
 import com.demo.butaca.model.VerificacionIdentidad;
+import com.demo.butaca.util.CruceHashUtils;
 import com.demo.butaca.repository.AuditoriaSeguridadRepository;
 import com.demo.butaca.repository.CategoriaRepository;
 import com.demo.butaca.repository.CompraRepository;
@@ -164,16 +165,16 @@ public class DataLoader {
             if (compraRepository.count() == 0 && eventos.size() >= 4) {
                 LocalDateTime ahora = LocalDateTime.now();
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        personaRepository, historialRepository, auditoriaRepository, eventos.get(0), cliente, 2,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(0), cliente, 2,
                         ahora.minusDays(3).withHour(10).withMinute(15), "PAY-MP-DEMO0001", "BUT-2026-000001");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        personaRepository, historialRepository, auditoriaRepository, eventos.get(1), cliente, 1,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(1), cliente, 1,
                         ahora.minusDays(1).withHour(17).withMinute(40), "PAY-MP-DEMO0002", "BUT-2026-000002");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        personaRepository, historialRepository, auditoriaRepository, eventos.get(2), ana, 3,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(2), ana, 3,
                         ahora.minusDays(2).withHour(19).withMinute(5), "PAY-ST-DEMO0003", "BUT-2026-000003");
                 crearCompraDemo(compraRepository, pagoRepository, comprobanteRepository, entradaRepository,
-                        personaRepository, historialRepository, auditoriaRepository, eventos.get(3), ana, 2,
+                        personaRepository, verificacionRepository, historialRepository, auditoriaRepository, eventos.get(3), ana, 2,
                         ahora.minusHours(5), "PAY-MP-DEMO0004", "BUT-2026-000004");
             }
 
@@ -281,7 +282,7 @@ public class DataLoader {
                     .metodoVerificacion(MetodoVerificacion.BIOMETRIA_RENAPER)
                     .estadoVerificacion(EstadoVerificacion.VERIFICADA)
                     .codigoValidacionKyc(codigoKyc)
-                    .observacionVerificacion("Identidad verificada por padrón biométrico RENAPER")
+                    .observacionVerificacion("Identidad de prueba verificada por el simulador de demo")
                     .fechaSolicitud(ahora)
                     .fechaVerificacion(ahora.plusMinutes(2))
                     .build());
@@ -322,11 +323,13 @@ public class DataLoader {
                                  ComprobanteRepository comprobanteRepository,
                                  EntradaRepository entradaRepository,
                                  PersonaRepository personaRepository,
+                                 VerificacionIdentidadRepository verificacionRepository,
                                  HistorialEstadoEntradaRepository historialRepository,
                                  AuditoriaSeguridadRepository auditoriaRepository,
                                  Evento evento, Usuario cliente,
                                  int cantidad, LocalDateTime fechaCompra,
                                  String refPago, String numComprobante) {
+        fechaCompra = fechaCompra.withNano(0);
         Compra compra = Compra.builder()
                 .fechaCompra(fechaCompra)
                 .estadoCompra(EstadoCompra.CONFIRMADA)
@@ -353,7 +356,7 @@ public class DataLoader {
                 .respuestaProveedorPago("medio=TARJETA_CREDITO|last4=4242")
                 .build());
 
-        comprobanteRepository.save(Comprobante.builder()
+        Comprobante comprobante = comprobanteRepository.save(Comprobante.builder()
                 .pago(pago)
                 .numeroComprobante(numComprobante)
                 .tipoComprobante(TipoComprobante.RECIBO_DIGITAL)
@@ -362,6 +365,7 @@ public class DataLoader {
                 .fechaEmisionComprobante(fechaCompra)
                 .build());
 
+        List<Entrada> entradasEmitidas = new ArrayList<>();
         String nombreTitular = (cliente.getNombreUsuario() + " " + cliente.getApellidoUsuario()).trim();
         for (int i = 0; i < cantidad; i++) {
             final int indice = i;
@@ -393,6 +397,7 @@ public class DataLoader {
                     .nombreAsistente(nombreNominal)
                     .build();
             entrada = entradaRepository.save(entrada);
+            entradasEmitidas.add(entrada);
             historialRepository.save(HistorialEstadoEntrada.builder()
                     .entrada(entrada)
                     .estadoNuevoEntrada(EstadoEntrada.CONFIRMADA)
@@ -401,6 +406,10 @@ public class DataLoader {
                     .fechaCambioEntrada(fechaCompra)
                     .build());
         }
+
+        VerificacionIdentidad verificacion = verificacionRepository.findByUsuarioIdUsuario(cliente.getIdUsuario()).orElseThrow();
+        comprobante.setHashCruceSeguridad(CruceHashUtils.calcular(compra, verificacion, pago, entradasEmitidas));
+        comprobanteRepository.save(comprobante);
 
         auditoriaRepository.save(AuditoriaSeguridad.builder()
                 .usuario(cliente)

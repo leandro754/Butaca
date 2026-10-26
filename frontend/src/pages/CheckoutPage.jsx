@@ -38,7 +38,9 @@ function CheckoutPage({ currentUser }) {
     dni: initialDni,
     numeroTramite: "00548291034",
     metodo: "BIOMETRIA_RENAPER",
-    selfieLista: true
+    fotoDni: null,
+    selfie: null,
+    observacion: ""
   });
 
   const [paymentMode, setPaymentMode] = useState("TARJETA"); // TARJETA | BILLETERA
@@ -101,7 +103,7 @@ function CheckoutPage({ currentUser }) {
 
   async function handleVerifyIdentity() {
     const cleanDni = (kycData.dni || "").replace(/\D/g, "");
-    if (cleanDni.length < 7) {
+    if (cleanDni.length < 7 || cleanDni.length > 8) {
       window.alert("Ingresá un número de DNI válido (7 u 8 dígitos).");
       return;
     }
@@ -109,13 +111,17 @@ function CheckoutPage({ currentUser }) {
       window.alert("Ingresá los dígitos del N° de trámite que figura al frente de tu DNI.");
       return;
     }
+    if (!validarArchivo(kycData.fotoDni, "la foto del frente del DNI")) {
+      return;
+    }
+    if (!validarArchivo(kycData.selfie, "la selfie de prueba de vida")) {
+      return;
+    }
 
     setKycLoading(true);
     try {
-      setKycStepText("Consultando padrón RENAPER y ejemplar de DNI...");
-      await new Promise((r) => setTimeout(r, 650));
-      setKycStepText("Validando prueba de vida y biometría facial...");
-      await new Promise((r) => setTimeout(r, 650));
+      setKycStepText("Validando documento y selfie con el proveedor simulado...");
+      await new Promise((r) => setTimeout(r, 500));
 
       const verified = await verifyUserIdentity({
         usuarioId: currentUser.id,
@@ -123,16 +129,27 @@ function CheckoutPage({ currentUser }) {
         nombreUsuario: currentUser.nombre,
         apellidoUsuario: currentUser.apellido,
         dniUsuario: cleanDni,
-        metodoVerificacion: kycData.metodo
+        numeroTramite: kycData.numeroTramite.replace(/\D/g, ""),
+        metodoVerificacion: kycData.metodo,
+        fotoDni: kycData.fotoDni,
+        selfie: kycData.selfie
       });
 
+      const isVerified = verified.estado_verificacion === "VERIFICADA";
       const resolvedUserId = verified.usuario_id || currentUser.id;
       setKycData((prev) => ({
         ...prev,
-        verificado: verified.estado_verificacion === "VERIFICADA",
-        estado: verified.estado_verificacion,
-        dni: verified.dni_usuario
+        verificado: isVerified,
+        estado: verified.estado_verificacion || "RECHAZADA",
+        dni: verified.dni_usuario || cleanDni,
+        observacion: verified.observacion_verificacion || ""
       }));
+
+      if (!isVerified) {
+        window.alert(verified.observacion_verificacion || "No pudimos verificar tu identidad. Revisá los datos y las imágenes.");
+        return;
+      }
+
       saveAuthUser({
         ...currentUser,
         id: resolvedUserId,
@@ -155,6 +172,22 @@ function CheckoutPage({ currentUser }) {
       setKycLoading(false);
       setKycStepText("");
     }
+  }
+
+  function validarArchivo(archivo, etiqueta) {
+    if (!archivo) {
+      window.alert(`Seleccioná ${etiqueta}.`);
+      return false;
+    }
+    if (!archivo.type?.startsWith("image/")) {
+      window.alert(`${etiqueta} debe ser una imagen (JPG, PNG o WebP).`);
+      return false;
+    }
+    if (archivo.size > 5 * 1024 * 1024) {
+      window.alert(`${etiqueta} no puede superar los 5 MB.`);
+      return false;
+    }
+    return true;
   }
 
   function handleAsistenteChange(index, field, value) {
@@ -275,7 +308,7 @@ function CheckoutPage({ currentUser }) {
             ) : (
               <div style={{ marginTop: 14 }}>
                 <p style={{ margin: "0 0 14px", fontSize: "0.86rem", color: "var(--text-2)", lineHeight: 1.5 }}>
-                  Para evitar la reventa y proteger tu compra, necesitamos validar tu identidad por única vez con tu DNI y una prueba biométrica rápida.
+                  Para evitar la reventa y proteger tu compra, necesitamos validar tu identidad por única vez con tu DNI y una selfie. En esta demo se usa un proveedor simulado; no se envía nada a RENAPER real.
                 </p>
 
                 <div className="form-grid two-columns" style={{ marginBottom: 14 }}>
@@ -296,6 +329,31 @@ function CheckoutPage({ currentUser }) {
                       placeholder="Ej: 00548291034"
                       required
                     />
+                  </label>
+                </div>
+
+                <div className="form-grid two-columns" style={{ marginBottom: 14 }}>
+                  <label>
+                    Foto del frente del DNI
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setKycData((prev) => ({ ...prev, fotoDni: e.target.files?.[0] || null }))}
+                    />
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>
+                      {kycData.fotoDni?.name || "JPG, PNG o WebP · máximo 5 MB"}
+                    </span>
+                  </label>
+                  <label>
+                    Selfie de prueba de vida
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setKycData((prev) => ({ ...prev, selfie: e.target.files?.[0] || null }))}
+                    />
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>
+                      {kycData.selfie?.name || "Selfie mirando de frente · máximo 5 MB"}
+                    </span>
                   </label>
                 </div>
 
@@ -332,18 +390,24 @@ function CheckoutPage({ currentUser }) {
                     </div>
                     <div>
                       <strong style={{ display: "block", fontSize: "0.88rem" }}>
-                        Validación biométrica RENAPER
+                        Verificación de identidad (simulada)
                       </strong>
                       <span style={{ fontSize: "0.8rem", color: "var(--text-2)" }}>
-                        {kycStepText || "Frente y dorso del DNI + selfie de prueba de vida listos para validar"}
+                        {kycStepText || "La foto del DNI y la selfie se procesan en memoria y no se almacenan"}
                       </span>
                     </div>
                   </div>
 
                   <Button type="button" onClick={handleVerifyIdentity} disabled={kycLoading}>
-                    {kycLoading ? "Validando con RENAPER..." : "Validar mi identidad"}
+                    {kycLoading ? "Validando..." : "Validar identidad"}
                   </Button>
                 </div>
+
+                {kycData.observacion ? (
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-2)" }}>
+                    {kycData.observacion}
+                  </p>
+                ) : null}
               </div>
             )}
           </div>
@@ -559,7 +623,7 @@ function CheckoutPage({ currentUser }) {
                 </div>
 
                 <p style={{ margin: "12px 0 0", fontSize: "0.78rem", color: "var(--text-3)" }}>
-                  🔒 Tus datos se encriptan de extremo a extremo. Nunca guardamos el número completo ni el código de seguridad de tu tarjeta.
+                  🔒 Demo de pasarela: el número completo y el CVV no se envían al backend. Solo se usan en el navegador para la simulación y se conservan los últimos cuatro dígitos.
                 </p>
               </div>
             ) : (

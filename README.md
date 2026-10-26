@@ -1,136 +1,135 @@
 # Butaca
 
-Plataforma académica de gestión de eventos y venta de entradas nominales desarrollada con **Spring Boot 4 (Java 17)**, **Spring Data JPA**, **PostgreSQL / H2** y **React + Vite**.
+Plataforma académica de gestión de eventos y venta simulada de entradas nominales. Desarrollada por **MLSN Group** con Java 17, Spring Boot, React y una API REST bajo `/api`.
 
----
+El circuito principal incluye registro, verificación de identidad, compra, pago simulado, emisión de tickets QR y consulta por rol. Se conservan las tarifas por evento, los reembolsos simulados y la cola de correo SMTP opcional. El modelo relacional tiene **16 entidades**; cada entrada conserva su precio histórico y los datos de su asistente.
 
-## Arquitectura y Modelo de Datos (3FN)
+**Estado:** proyecto en desarrollo, con un circuito de demostración funcional. Los pendientes para la presentación y la evolución del sistema se registran en [estado y próximos pasos](docs/estado-del-proyecto.md).
 
-El modelo relacional está normalizado en **Tercera Forma Normal (3FN)** y compuesto por **16 entidades** distribuidas en **5 módulos**:
+La verificación de identidad y la pasarela de pago son simuladas. La autenticación local permite demostrar las vistas por rol; no implementa sesiones ni autorización de producción. Ver [alcance técnico](docs/arquitectura.md).
 
-1. **Identidad y Autenticación:** `persona`, `usuario`, `rol`, `verificacion_identidad`
-2. **Eventos y Notificaciones:** `categoria`, `ubicacion`, `evento`, `notificacion`
-3. **Compras, Tarifas y Entradas:** `compra`, `tipo_entrada`, `entrada`, `historial_estado_entrada`
-4. **Pagos, Reembolsos y Comprobantes:** `pago`, `reembolso`, `comprobante`
-5. **Seguridad y Auditoría Forense:** `auditoria_seguridad`
+## Requisitos
 
-```mermaid
-erDiagram
-    PERSONA |o--o{ USUARIO : identifica
-    ROL ||--o{ USUARIO : asigna
-    USUARIO ||--o| VERIFICACION_IDENTIDAD : verifica
-    USUARIO ||--o{ EVENTO : organiza
-    UBICACION ||--o{ EVENTO : aloja
-    CATEGORIA ||--o{ EVENTO : clasifica
-    EVENTO ||--o{ TIPO_ENTRADA : ofrece
-    USUARIO ||--o{ COMPRA : compra
-    COMPRA |o--o{ ENTRADA : agrupa
-    EVENTO ||--o{ ENTRADA : emite
-    TIPO_ENTRADA |o--o{ ENTRADA : tarifa
-    PERSONA ||--o{ ENTRADA : titular
-    ENTRADA ||--o{ HISTORIAL_ESTADO_ENTRADA : registra
-    USUARIO |o--o{ HISTORIAL_ESTADO_ENTRADA : responsable
-    COMPRA ||--o{ PAGO : intentos
-    PAGO ||--o{ REEMBOLSO : devoluciones
-    PAGO ||--o| COMPROBANTE : respalda
-    USUARIO ||--o{ NOTIFICACION : recibe
-    EVENTO |o--o{ NOTIFICACION : relaciona
-    COMPRA |o--o{ NOTIFICACION : relaciona
-    USUARIO |o--o{ AUDITORIA_SEGURIDAD : audita
-```
+| Herramienta | Versión / uso |
+| --- | --- |
+| JDK | Java 17 como versión objetivo; configurar `JAVA_HOME` |
+| Node.js | `.nvmrc` fija 22.20.0; también se admiten 20.19+, 22.12+ y versiones posteriores a 22 |
+| pnpm | 9 o superior, según `frontend/package.json` |
+| Maven | Incluido mediante `mvnw` / `mvnw.cmd` |
+| PostgreSQL | Opcional; la demo usa H2 en memoria |
 
-### Decisiones de Diseño Clave
+La primera ejecución necesita Internet para resolver dependencias de Maven y pnpm. Si está disponible, los scripts usan `corepack pnpm`; también aceptan pnpm instalado. En macOS/Linux se requieren Bash, curl y pgrep.
 
-- **Separación de Identidad (`persona` vs `usuario`):** Los datos filiatorios (`dni_persona`, nombre y apellido) residen una única vez en `persona`. Esto permite emitir entradas nominales para acompañantes sin cuenta y evita duplicar el DNI en `verificacion_identidad` o `entrada`.
-- **Tarifario e Histórico de Precios (`tipo_entrada` y `entrada`):** Los precios de lista se configuran en `tipo_entrada`, mientras que cada ticket emitido congela su valor en `entrada.precio_pagado_entrada`.
-- **Sin Columnas Calculadas:** El cupo disponible de un evento, la cantidad de entradas y el monto total de una compra se calculan dinámicamente a partir de `entrada`.
-- **Pagos y Comprobantes:** `pago` registra la transacción de pasarela sin almacenar datos sensibles de tarjeta (PAN/CVV). `comprobante` se vincula `1:1` al pago aprobado mediante firma criptográfica `SHA-256` (`hash_cruce_seguridad`), y `reembolso` registra devoluciones ante cancelaciones.
-- **Trazabilidad y Concurrencia:** Control de concurrencia optimista (`@Version`) en `evento` y `entrada`, historial de estados por ticket en `historial_estado_entrada` y bitácora *append-only* en `auditoria_seguridad`.
+## Ejecutar la demo
 
----
-
-## Requisitos Previos
-
-- **Java 17+** (`JAVA_HOME` configurado)
-- **Node.js 20.19+ / 22.12+** y **pnpm 9+**
-
----
-
-## Ejecución Local
-
-### 1. Backend (Spring Boot + Base H2 en memoria)
+Desde la raíz del repositorio, en Windows:
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\iniciar-windows.bat
 ```
 
-- **API REST:** `http://localhost:8081/api/eventos`
-- **Consola H2:** `http://localhost:8081/h2-console`
-  - **JDBC URL:** `jdbc:h2:mem:butaca_demo`
-  - **Usuario:** `sa` *(contraseña vacía)*
+En macOS/Linux:
 
-### 2. Frontend (React + Vite)
-
-```powershell
-cd frontend
-pnpm install
-pnpm run dev
+```bash
+bash ./scripts/demo.sh
 ```
 
-- **Aplicación Web:** `http://localhost:5173`
+En macOS también se puede usar `bash ./iniciar-mac.command` o abrir ese archivo desde Finder si tiene permiso de ejecución.
 
-### 3. Pruebas Automatizadas
+Los scripts verifican los puertos, instalan dependencias con el lockfile, compilan el frontend y limpian la salida anterior de Maven. Spring Boot sirve la web y la API en **http://localhost:8081**. Esperan una respuesta de los servidores antes de anunciar que la demo está lista. **Ctrl+C** detiene los procesos iniciados por el script; los logs quedan en `target/demo-logs/`.
+
+La base H2 se recrea en cada arranque. No hace falta importar SQL ni configurar PostgreSQL.
+
+| Rol | Email | Contraseña de demo |
+| --- | --- | --- |
+| Administrador | `admin@butaca.com` | `admin123` |
+| Organizador | `org@butaca.com` | `org123` |
+| Cliente | `cliente@butaca.com` | `cliente123` |
+
+Estas cuentas tienen identidad verificada. Para mostrar KYC desde cero, registrar otra cuenta. Se pueden usar imágenes de prueba: el proveedor es simulado y las fotos no se persisten.
+
+Consola H2: `http://localhost:8081/h2-console`, JDBC `jdbc:h2:mem:butaca_demo`, usuario `sa`, contraseña vacía.
+
+## Desarrollo con Vite
+
+Windows:
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\demo.ps1 -Dev
+```
+
+macOS/Linux:
+
+```bash
+bash ./scripts/demo.sh --dev
+```
+
+La web queda en `http://localhost:5173` y Vite envía `/api` al backend en `8081`. Para cambiar los puertos:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\demo.ps1 -Dev -BackendPort 8099 -FrontendPort 5174
+```
+
+```bash
+SERVER_PORT=8099 FRONTEND_PORT=5174 bash ./scripts/demo.sh --dev
+```
+
+Un puerto ocupado genera un error explícito; no se cambia silenciosamente. Las opciones de backend también sirven para la demo sin Vite. Ver [desarrollo y configuración](docs/desarrollo.md).
+
+## Verificación
+
+Windows:
+
+```powershell
+.\mvnw.cmd compile
 .\mvnw.cmd test
+cd frontend
+corepack pnpm run build
 ```
 
----
+macOS/Linux:
 
-## Usuarios de Prueba (`DataLoader`)
+```bash
+./mvnw compile
+./mvnw test
+cd frontend
+pnpm run build
+```
 
-| Rol | Email | Contraseña | Permisos Principales |
-| --- | --- | --- | --- |
-| **Cliente** | `cliente@butaca.com` | `cliente123` | Catálogo, verificación KYC, compra de entradas nominales y descarga de tickets QR. |
-| **Organizador** | `org@butaca.com` | `org123` | Creación y edición de eventos, gestión de tarifas, publicación, cancelación y validación de QR en puerta. |
-| **Administrador** | `admin@butaca.com` | `admin123` | Gestión de ubicaciones, categorías, roles de usuario y auditoría de seguridad. |
+Las pruebas de integración comprueban catálogo, compra nominal, verificación KYC, rechazos de pago, auditoría persistente e integridad del comprobante. No incluyen una prueba de carga ni una prueba concurrente de sobreventa.
 
----
+## Estructura
 
-## Endpoints Principales de la API REST
+```text
+src/main/java/com/demo/butaca/  Backend: controladores, servicios, dominio e integraciones
+src/main/resources/           Configuración de Spring Boot y perfiles
+src/test/                     Pruebas de integración
+frontend/src/                 Interfaz React y servicios HTTP
+scripts/                      Arranque de demo y desarrollo
+docs/                         Arquitectura, API, modelo y material de exposición
+butaca.dbml                   Modelo relacional de referencia
+docs/drawdb-butaca-modelado-datos.json  Diagrama DrawDB de 16 entidades
+srs_proyecto.md               Especificación de requisitos
+```
 
-### Autenticación e Identidad (KYC)
-- `POST /api/auth/register` — Registro de usuario.
-- `POST /api/auth/login` — Inicio de sesión.
-- `GET /api/verificaciones/usuario/{usuarioId}` — Estado de verificación KYC del usuario.
-- `POST /api/verificaciones` — Solicitud y validación de identidad KYC.
+El frontend compilado se genera en `frontend/dist/`; Maven lo copia a `target/classes/static/` al procesar recursos. Los bundles no se versionan ni se copian manualmente a `src/`. Para generar un JAR con la web incluida, ver [la guía de desarrollo](docs/desarrollo.md#empaquetar-la-aplicación).
 
-### Eventos y Catálogo
-- `GET /api/eventos` — Listado de eventos publicados con cupo disponible.
-- `GET /api/eventos/{id}` — Detalle de un evento y sus tarifas (`tipos_entrada`).
-- `POST /api/eventos` / `PUT /api/eventos/{id}` — Creación y actualización de eventos y tarifas.
-- `PUT /api/eventos/{id}/publicar` — Publicación de evento en estado `BORRADOR`.
-- `PUT /api/eventos/{id}/cancelar` — Cancelación de evento, anulación de entradas y generación automática de reembolsos.
+## Documentación
 
-### Compras, Entradas y Notificaciones
-- `POST /api/compras` — Compra transaccional (validación KYC, control de cupo, registro de pago, emisión de entradas nominales, comprobante SHA-256, notificación y auditoría).
-- `GET /api/compras/{id}` / `GET /api/compras/usuario/{id}` / `GET /api/compras/organizador/{id}` — Consulta de compras.
-- `GET /api/entradas/validar/{codigo}` — Validación de código único QR en puerta.
-- `PUT /api/entradas/{id}/usar` — Registro de ingreso nominal (`CONFIRMADA` → `USADA`).
-- `GET /api/notificaciones/usuario/{usuarioId}` / `PUT /api/notificaciones/{id}/leer` — Bandeja de notificaciones.
+- [Índice y fuentes de referencia](docs/README.md).
+- [Requisitos del sistema](srs_proyecto.md).
+- [Arquitectura e integraciones simuladas](docs/arquitectura.md).
+- [API REST](docs/api.md).
+- [Correo SMTP y configuración de eventos](docs/correo-real-y-eventos.md).
+- [Desarrollo, PostgreSQL y solución de problemas](docs/desarrollo.md).
+- [Modelo de datos y normalización](docs/normalizacion-base-datos.md).
+- [Guía para la demo y consultas SQL](docs/guia-presentacion.md).
+- [Plan de exposición de diez minutos](docs/plan-exposicion-10-minutos.md).
 
-### Administración y Auditoría
-- `GET /api/admin/dashboard` / `GET /api/admin/stats` — Indicadores generales y operaciones cruzadas.
-- `GET /api/admin/usuarios` / `PUT /api/admin/usuarios/{id}/rol` — Administración de usuarios y roles.
-- `GET /api/admin/auditoria` — Consulta de la bitácora `auditoria_seguridad`.
-- `GET /api/admin/categorias` / `POST /api/admin/categorias` — Gestión de categorías.
-- `GET /api/admin/ubicaciones` / `POST /api/admin/ubicaciones` — Gestión de ubicaciones.
+## Equipo
 
----
+Mariano Piovesan · Leandro Gramajo Gargiulo · Santiago González Fernández · Ignacio Molina Tula.
 
-## Documentación Técnica
+## Trabajo desde dos equipos
 
-- [`srs_proyecto.md`](srs_proyecto.md) — Especificación de Requisitos de Software (SRS).
-- [`docs/schema-3fn-seguridad.sql`](docs/schema-3fn-seguridad.sql) — DDL PostgreSQL exportado desde DrawDB.
-- [`docs/drawdb-butaca-modelado-datos.json`](docs/drawdb-butaca-modelado-datos.json) — Diagrama completo de DrawDB (16 tablas, 5 módulos y notas técnicas).
-- [`docs/normalizacion-base-datos.md`](docs/normalizacion-base-datos.md) — Justificación de normalización (1FN, 2FN y 3FN).
+Antes de empezar, usar `git switch fix/kyc-pago-auditoria` y `git pull --ff-only` para actualizar la misma rama. Al terminar, crear un commit y ejecutar `git push`. Si la rama base cambia, integrar `origin/master` en la rama de trabajo y resolver los conflictos antes de completar el PR. Los cambios sin commit y los secretos locales no se sincronizan con Git.

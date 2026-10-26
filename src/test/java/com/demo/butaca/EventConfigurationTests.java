@@ -45,6 +45,10 @@ class EventConfigurationTests {
     CompraResponseDTO buy(EventoResponseDTO event, Long type, int quantity) {
         CompraRequestDTO request = new CompraRequestDTO(); request.setEventoId(event.getIdEvento()); request.setTipoEntradaId(type);
         request.setCantidad(quantity); request.setUsuarioId(users.findByEmailUsuarioIgnoreCase("cliente@butaca.com").orElseThrow().getIdUsuario());
+        request.setMedioPago("TARJETA_DEBITO");
+        String dni = users.findById(request.getUsuarioId()).orElseThrow().getDniUsuario();
+        request.setAsistentes(java.util.stream.IntStream.range(0, quantity)
+                .mapToObj(i -> new AsistenteNominalDTO(String.valueOf(Long.parseLong(dni) + i), "Asistente Prueba " + i)).toList());
         return purchases.comprarEntrada(request);
     }
 
@@ -59,6 +63,8 @@ class EventConfigurationTests {
         request.setFechaEvento(request.getFechaEvento().plusDays(3));
         events.editarEvento(created.getIdEvento(), request);
         assertEquals(0, new BigDecimal("10000").compareTo(purchases.obtenerCompra(purchase.getId()).getTotal()));
+        assertEquals("TARJETA_DEBITO", purchases.obtenerCompra(purchase.getId()).getPago().getMedioPago());
+        assertTrue(purchases.verificarCruce(purchase.getId()).isValida());
         EventoResponseDTO edited = events.obtenerEvento(created.getIdEvento());
         assertEquals(2, edited.getEntradasVendidas());
         assertEquals(0, new BigDecimal("10000").compareTo(edited.getTotalVendido()));

@@ -12,9 +12,10 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/api": {
           target:
+            process.env.BUTACA_BACKEND_URL ||
             process.env.VITE_API_PROXY_TARGET ||
             env.VITE_API_PROXY_TARGET ||
-            "http://localhost:8080",
+            "http://localhost:8081",
           changeOrigin: true,
         },
       },

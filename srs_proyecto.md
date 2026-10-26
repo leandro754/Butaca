@@ -10,9 +10,9 @@
 
 ---
 
-### **Versión:** 2.5
-### **Fecha:** 24 de octubre de 2026
-### **Estándar:** Basado en IEEE 830 y SIA Académico  
+### **Versión:** 2.6
+### **Fecha:** 26 de octubre de 2026
+### **Estándar:** Basado en IEEE 830 y SIA Académico
 
 ---
 
@@ -51,17 +51,17 @@ El documento se divide en cuatro bloques clave: la **Sección 1** introduce el m
 ## **2. Descripción General**
 
 ### **2.1 Perspectiva del Producto**
-**BUTACA** se presenta como una solución desacoplada, moderna y sumamente robusta para la democratización de la venta de entradas. Técnicamente, está construida sobre un backend RESTful sólido en **Java 17 con Spring Boot**, y una interfaz de usuario interactiva estructurada en **React y Vite** gestionada mediante **pnpm**. 
+**BUTACA** utiliza un backend REST en **Java 17 con Spring Boot**, y una interfaz de usuario interactiva estructurada en **React y Vite** gestionada mediante **pnpm**.
 
 El sistema admite dos perfiles de ejecución:
-1.  **Perfil de Producción/Desarrollo Real:** Conectado a una base de datos relacional **PostgreSQL**.
+1.  **Perfil academico con base externa:** Conectado a una base de datos relacional **PostgreSQL**.
 2.  **Perfil de Demostración (`demo`):** Diseñado para pruebas y clases rápidas con una base de datos local **H2 en memoria** autoejecutable mediante el script `./scripts/demo.sh`, sin dependencias externas complejas.
 
 ### **2.2 Funciones del Producto**
 *   **Autenticación Uniforme y Verificación de Identidad (KYC):** Registro e inicio de sesión seguro con contraseñas encriptadas con **BCrypt**, DNI único por usuario y validación de identidad obligatoria (`verificacion_identidad`) antes de habilitar la compra de entradas.
 *   **Gestor de Ubicaciones Físicas:** Registro de establecimientos físicos (`ubicacion`) con control estricto de capacidad máxima para evitar la asignación de eventos que excedan la capacidad logística.
 *   **Ciclo de Vida de Eventos:** Creación de publicaciones en estado `BORRADOR`, publicación abierta al público (`PUBLICADO`) o anulación del espectáculo por fuerza mayor (`CANCELADO`).
-*   **Pasarela de Pago Tokenizada (PCI-DSS) y Comprobante con Cruce SHA-256:** Procesamiento del pago en tabla dedicada (`pago`) almacenando únicamente tokens de idempotencia y últimos 4 dígitos (sin PAN ni CVV), emitiendo un `comprobante` con firma criptográfica SHA-256 que cruza comprador verificado, pago y tickets.
+*   **Pasarela de pago simulada (minimizacion de datos) y Comprobante con Cruce SHA-256:** Procesamiento del pago en tabla dedicada (`pago`) almacenando referencia externa, monto, moneda y datos reducidos del proveedor (sin PAN ni CVV), emitiendo un `comprobante` con firma criptográfica SHA-256 que cruza comprador verificado, pago y tickets.
 *   **Entradas Nominales y Congelamiento de Precios Históricos:** La compra genera una cabecera mínima y congela precio y moneda en `entrada`. Cada ticket se vincula con `persona` mediante `id_persona_titular`; el nombre y el DNI del asistente en la API son proyecciones, no columnas duplicadas.
 *   **Doble Nivel de Trazabilidad y Tracking de Seguridad:** Cada transición del ticket se registra en `historial_estado_entrada` y toda operación sensible del sistema se audita de forma inmutable en `auditoria_seguridad`.
 *   **Buzón de Notificaciones Internas:** Envío automático de notificaciones a clientes y organizadores sobre verificaciones KYC, envío de comprobantes y entradas nominales o cancelaciones de espectáculos.
@@ -76,8 +76,8 @@ El sistema admite dos perfiles de ejecución:
 
 ### **2.4 Restricciones**
 *   **Entorno Local Académico:** El modo demo utiliza H2 en memoria y destruye/recrea los datos en cada reinicio para asegurar un estado semilla limpio (`DataLoader`).
-*   **Pasarela de Pago Desacoplada bajo PCI-DSS:** Las transacciones registran la operación en `pago` mediante referencias externas tokenizadas y últimos 4 dígitos, prohibiendo almacenar numeración completa de tarjetas (PAN) o códigos CVV en la base de datos.
-*   **Conectividad de Red:** Al ser una arquitectura desacoplada Frontend-Backend, es requisito que el backend exponga la API bajo el puerto `8080` (con fallback de CORS) y el frontend consuma en el puerto `5173`.
+*   **Pasarela de pago desacoplada:** Las transacciones registran la operación en `pago` mediante referencias externas tokenizadas y últimos 4 dígitos, prohibiendo almacenar numeración completa de tarjetas (PAN) o códigos CVV en la base de datos.
+*   **Conectividad de red:** La demo sirve web y API en `8081`; el modo de desarrollo sirve Vite en `5173` con proxy hacia el backend. Los scripts permiten elegir otros puertos y rechazan los ocupados.
 
 ### **2.5 Suposiciones y Dependencias**
 *   Se asume que los navegadores clientes soportan estándares modernos de JavaScript (ES6+) y HTML5.
@@ -229,3 +229,7 @@ El sistema admite dos perfiles de ejecución:
 ### **4.3 Diagrama Descriptivo de la Base de Datos**
 
 La fuente editable vigente es [DrawDB: butaca-modelado-datos](https://drawdb.leandro754.moe/editor/diagrams/butaca-modelado-datos), con 16 entidades en 3FN. Los archivos Draw.io/DBML y las guías históricas deben contrastarse con esa fuente antes de usarse como DDL. El README incluye el resumen vigente de relaciones.
+
+## Integracion de las dos lineas de trabajo
+
+La version integrada conserva el modelo de 16 entidades de master, la configuracion de tarifas, reembolsos y correo, y las validaciones de evidencia KYC, pasarela y auditoria de la rama de trabajo. KYC requiere una cuenta existente y evidencias multipart; no crea usuarios ni contrasenas. Las imagenes solo se procesan en memoria. Los hashes, proveedor y puntaje se guardan en verificacion_identidad. El codigo de autorizacion y medio de pago se conservan en la respuesta reducida del proveedor de pago. No se afirma certificacion PCI-DSS ni integracion real con RENAPER.

@@ -44,6 +44,13 @@ public class CompraRequestDTO {
     @JsonProperty("ultimos_cuatro_digitos")
     private String ultimosCuatroDigitos;
 
+    /**
+     * Token opaco emitido por una pasarela real. En la demo, un token que
+     * empieza con RECHAZ permite probar el camino de pago rechazado.
+     */
+    @JsonProperty("token_pago")
+    private String tokenPago;
+
     @JsonProperty("tipo_comprobante")
     private String tipoComprobante;
 

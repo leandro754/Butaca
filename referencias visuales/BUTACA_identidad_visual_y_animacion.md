@@ -1,7 +1,7 @@
 # BUTACA — Identidad visual, dirección de arte y animación de entrada
 
-> **Documento de diseño y especificación de implementación**  
-> Concepto: **«La función empieza desde que entrás».**  
+> **Documento de diseño y especificación de implementación**
+> Concepto: **«La función empieza desde que entrás».**
 > Versión: 1.0 · Octubre de 2026
 
 ---
