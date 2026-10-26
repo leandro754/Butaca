@@ -15,6 +15,7 @@
     "prebuild": "node ./scripts/check-env.js",
     "dev": "vite",
     "build": "vite build",
+    "build:demo": "node ./scripts/build-demo.js",
     "preview": "vite preview"
   },
   "dependencies": {

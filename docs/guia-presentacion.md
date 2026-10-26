@@ -7,8 +7,10 @@ Esta guía resume los pasos para iniciar el proyecto y las consultas SQL listas 
 En Windows, hacer doble clic en `iniciar-windows.bat` o ejecutar en PowerShell:
 
 ```powershell
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
+.\iniciar-windows.bat
 ```
+
+En macOS/Linux: `bash ./scripts/demo.sh`. El arranque compila la web, prepara H2 y espera a que el servidor responda. Dejar la terminal abierta y usar Ctrl+C al terminar. Los logs quedan en `target/demo-logs/`. Requiere Java, Node y pnpm; preparar las dependencias con conexión antes de la exposición. Ver [requisitos](../README.md#requisitos).
 
 Abrir en el navegador:
 - **Web App:** `http://localhost:8080`
@@ -64,18 +66,18 @@ ORDER BY e.id_entrada DESC;
 
 ### D. Ver Trackeo en Historial de Estados de Entrada
 ```sql
-SELECT h.id_historial_estado_entrada, h.id_entrada,
+SELECT h.id_historial_entrada, h.id_entrada,
        h.estado_anterior_entrada, h.estado_nuevo_entrada,
        h.motivo_cambio_entrada, h.fecha_cambio_entrada
 FROM historial_estado_entrada h
 ORDER BY h.fecha_cambio_entrada DESC;
 ```
 
-### E. Ver Trackeo en Bitácora Inmutable de Auditoría de Seguridad
+### E. Ver Tracking en Bitácora de Auditoría de Seguridad
 ```sql
 SELECT a.id_auditoria, a.accion_auditoria, a.entidad_afectada,
-       a.id_registro_afectado, a.resultado_operacion,
-       a.detalle_cruce, a.fecha_evento_auditoria
+       a.id_registro_afectado, a.resultado_auditoria,
+       a.detalle_tracking, a.fecha_auditoria
 FROM auditoria_seguridad a
-ORDER BY a.fecha_evento_auditoria DESC;
+ORDER BY a.fecha_auditoria DESC;
 ```

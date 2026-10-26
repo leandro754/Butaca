@@ -1,250 +1,130 @@
-# Butaca - Plataforma de Eventos y Entradas Nominales
+# Butaca
 
-Sistema full-stack (**Spring Boot + React + JPA**) para gestionar eventos, validar identidad (KYC), procesar un pago y emitir entradas nominales con QR + DNI. Incluye un cruce de seguridad entre identidad, precio, pago y datos de cada asistente, con comprobante SHA-256 y auditoría.
+Plataforma académica de gestión de eventos y venta simulada de entradas nominales. Desarrollada por **MLSN Group** con Java 17, Spring Boot, React y una API REST bajo `/api`.
 
-> **Estado de las integraciones:** la pasarela de pago y el proveedor de identidad son **simulados** para la demo. No se afirma cumplimiento PCI-DSS ni integración real con RENAPER. Para conectar proveedores reales hay que implementar los adaptadores `PagoGateway` y `ProveedorIdentidad`, obtener credenciales y cumplir los requisitos legales/contractuales correspondientes.
+El circuito principal incluye registro, verificación de identidad, compra, pago simulado, emisión de tickets QR y consulta por rol. El modelo relacional tiene **13 entidades**; cada entrada conserva su precio histórico y los datos de su asistente.
 
----
+**Estado:** proyecto en desarrollo, con un circuito de demostración funcional. Los pendientes para la presentación y la evolución del sistema se registran en [estado y próximos pasos](docs/estado-del-proyecto.md).
 
-## Qué se implementó
+La verificación de identidad y la pasarela de pago son simuladas. La autenticación local permite demostrar las vistas por rol; no implementa sesiones ni autorización de producción. Ver [alcance técnico](docs/arquitectura.md).
 
-### 1. KYC con DNI, foto y selfie
+## Requisitos
 
-- El usuario debe existir: la verificación **no crea cuentas** ni asigna contraseñas por defecto.
-- Se envían por multipart:
-  - `usuario_id`, `dni_usuario`, `numero_tramite`.
-  - `foto_dni` y `selfie` como imágenes.
-- `ProveedorIdentidadSimulado` valida formato de DNI, presencia/tipo de imagen y coincidencia entre el nombre declarado y el de la cuenta.
-- Las imágenes se procesan en memoria. **No se persisten**: solo se guardan hashes SHA-256, proveedor, puntaje, estado y código KYC.
-- Un rechazo queda registrado en `verificacion_identidad` y en `auditoria_seguridad`; no se borra al lanzar el error de negocio.
-- Si la cuenta ya está verificada con el mismo DNI, la operación es idempotente para no romper el hash de comprobantes ya emitidos.
+| Herramienta | Versión / uso |
+| --- | --- |
+| JDK | Java 17 como versión objetivo; configurar `JAVA_HOME` |
+| Node.js | `.nvmrc` fija 22.20.0; también se admiten 20.19+, 22.12+ y versiones posteriores a 22 |
+| pnpm | 11.3 o superior; `frontend/package.json` declara la versión del proyecto |
+| Maven | Incluido mediante `mvnw` / `mvnw.cmd` |
+| PostgreSQL | Opcional; la demo usa H2 en memoria |
 
-### 2. Pasarela de pago con adaptador
+La primera ejecución necesita Internet para resolver dependencias de Maven y pnpm. Si está disponible, los scripts usan `corepack pnpm`; también aceptan pnpm instalado. En macOS/Linux se requieren Bash, curl y pgrep.
 
-- La compra usa `PagoGateway`; la implementación incluida es `PagoSimuladoGateway`.
-- El total se calcula **en el servidor** como `precio del evento × cantidad`.
-- Cada `Entrada` guarda `precio_pagado` con el precio histórico del evento.
-- El `Pago` guarda `monto`, `moneda`, `referencia_externa`, `codigo_autorizacion` y solo los últimos cuatro dígitos.
-- Si el monto aprobado por la pasarela no coincide con el total calculado, la compra se bloquea.
-- Para probar un rechazo en la demo, enviar `token_pago` con un valor que empiece con `RECHAZ` (por ejemplo `RECHAZAR-DEMO`).
+## Ejecutar la demo
 
-### 3. Cruce de información y entrada nominal
-
-`CompraService.comprarEntrada` valida, en una sola transacción:
-
-1. Usuario existente, activo y con KYC `VERIFICADA`.
-2. Email/DNI del comprador coherentes con la cuenta.
-3. Evento publicado, precio válido y cupo disponible.
-4. Exactamente `cantidad` asistentes, cada uno con nombre y DNI de 7 u 8 dígitos, sin DNI repetidos.
-5. Pago aprobado y monto exacto.
-6. Emisión de una entrada nominal por asistente.
-7. Comprobante con hash SHA-256 que cruza compra, DNI del comprador, código KYC, referencia/monto del pago, UUIDs de entradas y datos nominales.
-8. Auditoría del cruce exitoso.
-
-El endpoint `GET /api/compras/{id}/verificar-cruce` recalcula el hash y devuelve checks de integridad:
-
-- `compra_confirmada`
-- `kyc_verificada`
-- `pago_aprobado`
-- `monto_pago_coincide`
-- `precio_unitario_coincide`
-- `entradas_nominales`
-- `hash_comprobante_coincide`
-
-### 4. Auditoría de seguridad
-
-- Los eventos exitosos se guardan dentro de la transacción de negocio.
-- Los rechazos/bloqueos (login fallido, compra sin KYC, pago rechazado, KYC rechazado) usan una transacción independiente (`REQUIRES_NEW`) para que el error no borre la evidencia.
-- La IP se obtiene del request (`X-Forwarded-For` o `remoteAddr`) y no está hardcodeada.
-
-### 5. Frontend
-
-- Checkout con carga de foto del DNI y selfie.
-- Envío `multipart/form-data` real.
-- Si el KYC es rechazado, se muestra el motivo y no se habilita el pago.
-- La confirmación consulta el cruce de integridad y muestra el monto efectivamente autorizado.
-- La UI aclara que la pasarela y el KYC son simulados y que no se envían al backend el número completo de tarjeta ni el CVV.
-
----
-
-## Modelo de datos y migración pendiente
-
-El modelo actual ya incluye los campos nuevos. En la demo H2 el esquema se recrea con `spring.jpa.hibernate.ddl-auto=create-drop`.
-
-Campos agregados:
-
-- `verificacion_identidad`: `hash_evidencia_documental`, `hash_selfie`, `proveedor_identidad`, `puntaje_coincidencia`.
-- `pago`: `monto_pago`, `moneda_pago`, `codigo_autorizacion_pago`.
-
-Para una base PostgreSQL existente, el script de migración está en:
-
-- [`docs/migraciones/V2__kyc_pago_seguridad.sql`](docs/migraciones/V2__kyc_pago_seguridad.sql)
-
-Ese script es para ejecutar cuando se decida migrar. No se ejecuta automáticamente en la demo. Los comprobantes históricos conservan su hash original; si se quiere que el endpoint de cruce los valide, hay que reemitirlos o definir una estrategia de migración de hashes.
-
-Documentación adicional:
-
-- [`butaca.dbml`](butaca.dbml) - modelo DBML actualizado.
-- [`docs/normalizacion-base-datos.md`](docs/normalizacion-base-datos.md)
-- [`docs/glosario-y-modelo-base-de-datos.md`](docs/glosario-y-modelo-base-de-datos.md)
-- [`docs/guia-presentacion.md`](docs/guia-presentacion.md)
-
----
-
-## Ejecución rápida
-
-### Requisitos
-
-- Java 17.
-- Node.js >= 20.19 y pnpm >= 11.3 solo si se recompila el frontend.
-
-### Demo H2 (backend + frontend estático)
+Desde la raíz del repositorio, en Windows:
 
 ```powershell
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
+.\iniciar-windows.bat
 ```
 
-- Aplicación: `http://localhost:8080`
-- API: `http://localhost:8080/api`
-- H2 Console: `http://localhost:8080/h2-console`
-  - JDBC URL: `jdbc:h2:mem:butaca_demo`
-  - Usuario: `sa`
-  - Password: vacío
+En macOS/Linux:
 
-### Frontend con hot-reload
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
+```bash
+bash ./scripts/demo.sh
 ```
 
-### Credenciales de prueba
+En macOS también se puede usar `bash ./iniciar-mac.command` o abrir ese archivo desde Finder si tiene permiso de ejecución.
 
-| Rol | Email | Contraseña |
+Los scripts verifican los puertos, instalan dependencias con el lockfile, compilan el frontend y limpian la salida anterior de Maven. Spring Boot sirve la web y la API en **http://localhost:8080**. Esperan una respuesta de los servidores antes de anunciar que la demo está lista. **Ctrl+C** detiene los procesos iniciados por el script; los logs quedan en `target/demo-logs/`.
+
+La base H2 se recrea en cada arranque. No hace falta importar SQL ni configurar PostgreSQL.
+
+| Rol | Email | Contraseña de demo |
 | --- | --- | --- |
-| Cliente | `cliente@butaca.com` | `cliente123` |
-| Organizador | `org@butaca.com` | `org123` |
 | Administrador | `admin@butaca.com` | `admin123` |
+| Organizador | `org@butaca.com` | `org123` |
+| Cliente | `cliente@butaca.com` | `cliente123` |
 
-Los usuarios demo ya tienen KYC verificado. Para probar el flujo KYC completo, registrar una cuenta nueva y subir una imagen de DNI y una selfie.
+Estas cuentas tienen identidad verificada. Para mostrar KYC desde cero, registrar otra cuenta. Se pueden usar imágenes de prueba: el proveedor es simulado y las fotos no se persisten.
 
----
+Consola H2: `http://localhost:8080/h2-console`, JDBC `jdbc:h2:mem:butaca_demo`, usuario `sa`, contraseña vacía.
 
-## Endpoints principales
+## Desarrollo con Vite
 
-### Autenticación
-
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-
-### Identidad / KYC
-
-- `GET /api/verificaciones/usuario/{usuarioId}`
-- `POST /api/verificaciones` - `multipart/form-data`:
-  - `usuario_id`
-  - `email_usuario`
-  - `nombre_usuario`
-  - `apellido_usuario`
-  - `dni_usuario`
-  - `numero_tramite`
-  - `metodo_verificacion`
-  - `foto_dni` (archivo)
-  - `selfie` (archivo)
-
-### Eventos
-
-- `GET /api/eventos`
-- `GET /api/eventos/{id}`
-- `POST /api/eventos`
-- `PUT /api/eventos/{id}`
-- `PUT /api/eventos/{id}/publicar`
-- `PUT /api/eventos/{id}/cancelar`
-
-### Compras y pago
-
-- `POST /api/compras`
-- `GET /api/compras/{id}`
-- `GET /api/compras/{id}/verificar-cruce`
-- `GET /api/compras/usuario/{id}`
-- `GET /api/compras/organizador/{id}`
-
-Ejemplo de request de compra:
-
-```json
-{
-  "evento_id": 1,
-  "usuario_id": 2,
-  "email_usuario": "cliente@butaca.com",
-  "dni_usuario": "42850123",
-  "cantidad": 2,
-  "pasarela_pago": "MERCADOPAGO",
-  "medio_pago": "TARJETA_CREDITO",
-  "ultimos_cuatro_digitos": "4242",
-  "tipo_comprobante": "RECIBO_DIGITAL",
-  "token_pago": "TOKEN-DEMO",
-  "asistentes": [
-    { "dni_asistente": "42850123", "nombre_asistente": "Juan Perez" },
-    { "dni_asistente": "43999888", "nombre_asistente": "Lucia Fernandez" }
-  ]
-}
-```
-
-### Entradas y validación en puerta
-
-- `GET /api/entradas/validar/{codigo}`
-- `PUT /api/entradas/{id}/usar`
-
-### Administración
-
-- `GET /api/admin/dashboard`
-- `GET /api/admin/stats`
-- `GET /api/admin/auditoria`
-- `GET /api/admin/compras`
-- `GET /api/admin/usuarios`
-- `PUT /api/admin/usuarios/{id}`
-- `PUT /api/admin/usuarios/{id}/estado`
-- `PUT /api/admin/usuarios/{id}/rol`
-- `DELETE /api/admin/usuarios/{id}`
-- `GET /api/admin/categorias`
-- `POST /api/admin/categorias`
-- `GET /api/admin/ubicaciones`
-- `POST /api/admin/ubicaciones`
-
----
-
-## Pruebas
+Windows:
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\demo.ps1 -Dev
+```
+
+macOS/Linux:
+
+```bash
+bash ./scripts/demo.sh --dev
+```
+
+La web queda en `http://localhost:5173` y Vite envía `/api` al backend en `8080`. Para cambiar los puertos:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\demo.ps1 -Dev -BackendPort 8099 -FrontendPort 5174
+```
+
+```bash
+SERVER_PORT=8099 FRONTEND_PORT=5174 bash ./scripts/demo.sh --dev
+```
+
+Un puerto ocupado genera un error explícito; no se cambia silenciosamente. Las opciones de backend también sirven para la demo sin Vite. Ver [desarrollo y configuración](docs/desarrollo.md).
+
+## Verificación
+
+Windows:
+
+```powershell
+.\mvnw.cmd compile
 .\mvnw.cmd test
-```
-
-Las pruebas cubren:
-
-1. Catálogo público con disponibilidad.
-2. Cruce válido de un comprobante demo.
-3. Compra nominal con precio calculado, pago y hash.
-4. Bloqueo de compra sin KYC y habilitación posterior.
-5. KYC sin usuario existente (no crea cuentas).
-6. KYC con foto inválida y auditoría persistente.
-7. KYC con DNI distinto al registrado, sin verificar la cuenta y con auditoría.
-8. Login fallido con auditoría persistente.
-9. Pago rechazado sin emitir entradas y con auditoría independiente.
-10. Verificación del cruce de integridad.
-
-Compilar frontend:
-
-```powershell
 cd frontend
-corepack pnpm install --frozen-lockfile
-corepack pnpm build
+corepack pnpm run build
 ```
 
----
+macOS/Linux:
 
-## Privacidad y alcance
+```bash
+./mvnw compile
+./mvnw test
+cd frontend
+pnpm run build
+```
 
-- No se persisten fotos del DNI ni selfies.
-- No se persisten PAN ni CVV; solo los últimos cuatro dígitos.
-- La identidad y el pago son simulados: no hay conexión real con RENAPER ni con una pasarela.
-- La pasarela simulada no cobra. En un adaptador real, una autorización aprobada que no supere la validación de monto/moneda debe anularse o reembolsarse; este flujo demo no implementa esa compensación.
-- La autenticación actual es de demo (usuario en localStorage) y no reemplaza un esquema de sesiones/tokens de producción.
-- Para producción se requiere: proveedor KYC autorizado, pasarela tokenizada, HTTPS, gestión de secretos, autorización por roles y revisión legal de datos personales.
+Las pruebas de integración comprueban catálogo, compra nominal, verificación KYC, rechazos de pago, auditoría persistente e integridad del comprobante. No incluyen una prueba de carga ni una prueba concurrente de sobreventa.
+
+## Estructura
+
+```text
+src/main/java/com/demo/butaca/  Backend: controladores, servicios, dominio e integraciones
+src/main/resources/           Configuración de Spring Boot y perfiles
+src/test/                     Pruebas de integración
+frontend/src/                 Interfaz React y servicios HTTP
+scripts/                      Arranque de demo y desarrollo
+docs/                         Arquitectura, API, modelo y material de exposición
+butaca.dbml                   Modelo relacional de referencia
+diagrama Butaca.drawio        Diagrama editable
+srs_proyecto.md               Especificación de requisitos
+```
+
+El frontend compilado se genera en `frontend/dist/`; Maven lo copia a `target/classes/static/` al procesar recursos. Los bundles no se versionan ni se copian manualmente a `src/`. Para generar un JAR con la web incluida, ver [la guía de desarrollo](docs/desarrollo.md#empaquetar-la-aplicación).
+
+## Documentación
+
+- [Índice y fuentes de referencia](docs/README.md).
+- [Requisitos del sistema](srs_proyecto.md).
+- [Arquitectura e integraciones simuladas](docs/arquitectura.md).
+- [API REST](docs/api.md).
+- [Desarrollo, PostgreSQL y solución de problemas](docs/desarrollo.md).
+- [Modelo de datos y normalización](docs/normalizacion-base-datos.md).
+- [Guía para la demo y consultas SQL](docs/guia-presentacion.md).
+- [Plan de exposición de diez minutos](docs/plan-exposicion-10-minutos.md).
+
+## Equipo
+
+Mariano Piovesan · Leandro Gramajo Gargiulo · Santiago González Fernández · Ignacio Molina Tula.

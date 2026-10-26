@@ -1,7 +1,4 @@
-import { mockEvents } from "../data/mockEvents";
 import { request } from "./apiClient";
-
-export const useMockData = false;
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=1200&q=80";
@@ -78,20 +75,12 @@ export function mapSpringEvent(evento) {
 }
 
 export async function getAllEvents(params = {}) {
-  if (useMockData) {
-    return mockEvents;
-  }
-
   const query = params.categoriaId ? `?categoriaId=${params.categoriaId}` : "";
   const eventos = await request(`/eventos${query}`);
   return eventos.map(mapSpringEvent);
 }
 
 export async function getEventById(id) {
-  if (useMockData) {
-    return mockEvents.find((event) => String(event.id) === String(id)) || null;
-  }
-
   const evento = await request(`/eventos/${id}`);
   return mapSpringEvent(evento);
 }

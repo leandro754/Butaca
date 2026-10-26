@@ -1,8 +1,8 @@
-# Plan de Exposición de Butaca — 10 Minutos (Versión Final 13 Tablas)
+# Plan de exposición de Butaca en diez minutos
 
 > **Alcance de la demo:** la pasarela de pago y el proveedor de identidad son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen decisiones de minimización de datos.
 
-Este documento propone una defensa del proyecto **desde el resultado hacia las decisiones**: primero se muestra que Butaca funciona de punta a punta y después se explica cómo se resolvieron las correcciones pedidas por la cátedra (pasarela de pago desacoplada, verificación de identidad KYC obligatoria, método de cruce de información con firma SHA-256, entrada nominal por DNI y trackeo en bitácora de seguridad) cumpliendo estrictamente **1FN, 2FN, 3FN y FNBC**.
+Este guion de trabajo parte de la demo y luego explica el modelo relacional de 13 entidades, la compra transaccional, la identidad y el pago simulados, las entradas nominales y la auditoría. Debe ensayarse con la versión que se vaya a presentar. Los pendientes se detallan en [estado del proyecto](estado-del-proyecto.md).
 
 ---
 
@@ -14,7 +14,7 @@ Este documento propone una defensa del proyecto **desde el resultado hacia las d
 | 2:00–3:30 | Santiago | Problema y Roles | Separación de vistas: Cliente, Organizador (escáner QR + DNI en puerta) y Administrador (gestión de roles y auditoría). |
 | 3:30–5:30 | Ignacio | Diagrama ER (13 Tablas) y 3FN | Cómo se mueven los datos en el diagrama durante una compra y por qué cumple 1FN, 2FN y 3FN sin redundancia. |
 | 5:30–7:30 | Leandro | Seguridad Informática | Minimización de datos en `pago`, KYC en `verificacion_identidad`, firma `SHA-256` en `comprobante`, `@Version` y bitácora `auditoria_seguridad`. |
-| 7:30–9:15 | Mariano | Pruebas y Concurrencia | Los 10 tests de integración automatizados (`ButacaApplicationTests`) que validan el circuito. |
+| 7:30–9:15 | Mariano | Pruebas e integridad | Pruebas de integración (`ButacaApplicationTests`) del circuito y explicación de los campos `@Version`. No se presenta una prueba concurrente automatizada. |
 | 9:15–10:00 | Santiago | Cierre | Síntesis del valor académico y evolución a producción. |
 
 ---
@@ -32,11 +32,11 @@ Este documento propone una defensa del proyecto **desde el resultado hacia las d
 
 ### Paso B — Vista Organizador (`org@butaca.com` / `org123`)
 1. En el panel del organizador, ir al **Control de Acceso en Puerta (QR + DNI Nominal)**.
-2. Pegar el código UUID de la entrada recién comprada e ingresar primero un **DNI falso**: mostrar cómo el sistema **rechaza el ingreso** porque la entrada es nominal.
-3. Ingresar el **DNI real del titular**: mostrar cómo el ticket pasa a `USADA` y queda registrado en `historial_estado_entrada` y `auditoria_seguridad`.
+2. Pegar el código UUID de la entrada recién comprada y consultar los datos del asistente. El control de DNI consiste en comparar visualmente el documento con el dato mostrado; la API actual no recibe un DNI para contrastarlo al marcar el ticket como usado.
+3. Marcar la entrada como utilizada y mostrar el cambio a `USADA` en `historial_estado_entrada` y `auditoria_seguridad`. Intentar usarla otra vez para mostrar el rechazo por estado.
 
 ### Paso C — Vista Administrador (`admin@butaca.com` / `admin123`)
-1. Mostrar la sección de **Usuarios y Roles**: cómo las cuentas nuevas nacen siempre como `CLIENTE` y solo el administrador puede promoverlas a `ORGANIZADOR`.
+1. Mostrar la sección de **Usuarios y Roles** y la gestión disponible en la interfaz. Aclarar que el backend de demo acepta un rol en el registro y no implementa autorización de producción; la separación visual de paneles no equivale a proteger los endpoints.
 2. Mostrar la tabla de **Cruce Técnico de Compras y Pagos**: donde el administrador audita la referencia externa de pasarela, los últimos 4 dígitos y el hash de integridad `SHA-256` del comprobante.
 3. Mostrar la **Bitácora de Auditoría de Seguridad** en vivo.
 

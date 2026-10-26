@@ -92,7 +92,7 @@ erDiagram
 * **Columnas principales**: `id_notificacion` (PK), `id_usuario_destinatario` (FK), `id_evento_relacionado` (FK nullable), `mensaje_notificacion`, `tipo_notificacion`, `leida_notificacion`.
 
 ### 13. `auditoria_seguridad` (Bitácora inmutable de Tracking e Informática)
-* **Propósito**: Trackea de forma centralizada e inmutable (*append-only*) los eventos de seguridad y operaciones críticas del sistema (cumplimiento OWASP Logging & Monitoring / ISO 27001).
+* **Propósito**: Registra eventos de seguridad y operaciones críticas. Los servicios la usan como bitácora de inserciones (*append-only*); esto no implica certificación ISO 27001 ni una garantía de inmutabilidad frente a acceso directo a la base.
 * **Columnas principales**: `id_auditoria` (PK), `id_usuario` (FK nullable), `accion_auditoria`, `entidad_afectada`, `id_registro_afectado`, `resultado_auditoria` (`EXITOSO`, `RECHAZADO`, `BLOQUEADO`), `ip_origen`, `detalle_tracking`, `fecha_auditoria`.
 
 ---
@@ -118,4 +118,4 @@ erDiagram
 > "Porque resuelve simultáneamente la seguridad física, la experiencia de usuario y la 3FN:
 > * El comprador está obligado a verificar su identidad en la app (`verificacion_identidad`) antes de comprar.
 > * Al comprar varios tickets en una misma operación, asigna el DNI y nombre de cada asistente en cada fila de `entrada`.
-> * Así evitamos la reventa con entradas al portador y permitimos que en puerta se controle el QR (`codigo_unico_entrada`) junto con el DNI físico del asistente."
+> * Esto facilita que el personal compare el QR (`codigo_unico_entrada`) con el DNI físico. El dato nominal por sí solo no impide la reventa; el control actual de DNI es visual."

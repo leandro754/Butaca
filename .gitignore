@@ -1,6 +1,7 @@
 HELP.md
 target/
 frontend/dist/
+src/main/resources/static/
 .m2/
 .agents/
 .codex/

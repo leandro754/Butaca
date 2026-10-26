@@ -2,7 +2,7 @@
 
 > **Alcance de la demo:** la pasarela de pago y el proveedor de identidad son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen decisiones de minimización de datos, no una certificación.
 
-Este documento detalla el modelo relacional definitivo de **Butaca** (13 entidades normalizadas), incorporando todas las correcciones solicitadas por la cátedra:
+Este documento detalla el modelo relacional implementado en **Butaca** (13 entidades), con las decisiones de diseño trabajadas para la entrega académica:
 1. **Verificación de Identidad Obligatoria antes de comprar (KYC)** (`verificacion_identidad` + `usuario.dni_usuario`).
 2. **Pasarela de Pago desacoplada con minimización de datos inspirada en PCI-DSS** (`pago`).
 3. **Método de Cruce de Información al comprar (Verificación + Pago + Envío de Entrada + Comprobante con firma SHA-256)** (`comprobante` + `CompraService.comprarEntrada`).

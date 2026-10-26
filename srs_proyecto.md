@@ -10,11 +10,12 @@
 
 ---
 
-### **Versión:** 2.1  
-### **Fecha:** 1 de Septiembre de 2026  
+### **Versión:** 2.2
+
+### **Fecha de revisión:** 26 de octubre de 2026
 ### **Estándar:** Basado en IEEE 830 y SIA Académico  
 
-> **Alcance de la demo:** la pasarela de pago y el proveedor de identidad son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen minimización de datos.
+> **Estado del proyecto:** implementación académica en desarrollo. La pasarela de pago y el proveedor de identidad son simulados. El proyecto no afirma certificación PCI-DSS ni integración real con RENAPER; las referencias a PCI-DSS describen minimización de datos. La autenticación de demo guarda el perfil localmente; la autorización de endpoints con sesiones o tokens está pendiente.
 
 ---
 
@@ -35,7 +36,7 @@ El presente documento tiene como finalidad definir y especificar de forma riguro
 *   **Rol:** Nivel de autorización en el sistema (`ADMIN`, `ORGANIZADOR`, `CLIENTE`).
 *   **Estado de Evento:** `BORRADOR`, `PUBLICADO`, `CANCELADO`.
 *   **Estado de Entrada:** `CONFIRMADA`, `USADA`, `ANULADA`.
-*   **UUID:** Identificador Único Universal de 128 bits utilizado para asegurar que cada ticket sea único y no falsificable.
+*   **UUID:** Identificador Único Universal de 128 bits utilizado como código de consulta de cada ticket. Su existencia, estado y uso se validan contra el backend.
 
 ### **1.4 Referencias**
 *   **MLSN Group:** "Entregables del Taller Integrador de Ingeniería Informática".
@@ -51,10 +52,10 @@ El documento se divide en cuatro bloques clave: la **Sección 1** introduce el m
 ## **2. Descripción General**
 
 ### **2.1 Perspectiva del Producto**
-**BUTACA** se presenta como una solución desacoplada, moderna y sumamente robusta para la democratización de la venta de entradas. Técnicamente, está construida sobre un backend RESTful sólido en **Java 17 con Spring Boot**, y una interfaz de usuario interactiva estructurada en **React y Vite** gestionada mediante **pnpm**. 
+**BUTACA** utiliza un backend REST en **Java 17 con Spring Boot** y una interfaz **React y Vite** gestionada mediante **pnpm**. El backend implementa las reglas de compra, persistencia, validación e integridad; el frontend consume la API bajo `/api`.
 
 El sistema admite dos perfiles de ejecución:
-1.  **Perfil de Producción/Desarrollo Real:** Conectado a una base de datos relacional **PostgreSQL**.
+1.  **Perfil con base externa:** Conectado a **PostgreSQL** usando las propiedades base y variables de entorno. Sigue siendo una configuración académica; no implica que el sistema esté preparado para producción.
 2.  **Perfil de Demostración (`demo`):** Diseñado para pruebas y clases rápidas con una base de datos local **H2 en memoria** autoejecutable mediante el script `./scripts/demo.sh`, sin dependencias externas complejas.
 
 ### **2.2 Funciones del Producto**
@@ -77,7 +78,7 @@ El sistema admite dos perfiles de ejecución:
 ### **2.4 Restricciones**
 *   **Entorno Local Académico:** El modo demo utiliza H2 en memoria y destruye/recrea los datos en cada reinicio para asegurar un estado semilla limpio (`DataLoader`).
 *   **Pasarela de Pago Desacoplada (minimización de datos):** Las transacciones registran la operación en `pago` mediante referencias externas y últimos 4 dígitos, prohibiendo almacenar numeración completa de tarjetas (PAN) o códigos CVV en la base de datos. La demo usa un adaptador simulado y no procesa pagos reales.
-*   **Conectividad de Red:** Al ser una arquitectura desacoplada Frontend-Backend, es requisito que el backend exponga la API bajo el puerto `8080` (con fallback de CORS) y el frontend consuma en el puerto `5173`.
+*   **Conectividad de Red:** La demo de presentación sirve frontend y API desde Spring Boot en el puerto `8080`. En desarrollo, Vite sirve la web en `5173` y redirige `/api` al backend. Los scripts permiten elegir puertos explícitos y rechazan puertos ocupados.
 
 ### **2.5 Suposiciones y Dependencias**
 *   Se asume que los navegadores clientes soportan estándares modernos de JavaScript (ES6+) y HTML5.
@@ -106,7 +107,7 @@ El sistema admite dos perfiles de ejecución:
 *   **RNF1 (Seguridad Informática y Ley 25.326):** Ningún DTO expone hashes de contraseña. La tabla `pago` no almacena PAN ni CVV y aplica minimización de datos; el proyecto no afirma certificación PCI-DSS. `verificacion_identidad` guarda únicamente token, proveedor, puntaje y hashes SHA-256 de las evidencias, sin imágenes crudas.
 *   **RNF2 (Normalización Relacional de Base de Datos en 3FN):** La persistencia se realiza bajo un esquema relacional normalizado en **Tercera Forma Normal (3FN)** compuesto por 13 tablas en singular: `rol`, `usuario`, `verificacion_identidad`, `ubicacion`, `categoria`, `evento`, `compra`, `pago`, `comprobante`, `entrada`, `historial_estado_entrada`, `notificacion` y `auditoria_seguridad`.
 *   **RNF3 (Usabilidad y Compatibilidad API):** Las respuestas JSON de la API REST del backend usan nomenclatura en formato **snake_case** (mediante anotaciones `@JsonProperty`), mientras que el código de Java mantiene la convención interna de **camelCase**.
-*   **RNF4 (Facilidad de Instalación y Demo):** La aplicación cuenta con un script automatizado (`./scripts/demo.sh`) capaz de arrancar backend, frontend e inicializar datos semilla de prueba de forma transparente con un solo comando.
+*   **RNF4 (Facilidad de Instalación y Demo):** La aplicación cuenta con scripts equivalentes para Windows (`scripts/demo.ps1`) y macOS/Linux (`scripts/demo.sh`). Compilan el frontend para presentación, inician Spring Boot con H2 y datos semilla, comprueban disponibilidad y permiten un modo de desarrollo con Vite. Requieren Java, Node y pnpm; la primera ejecución necesita resolver dependencias.
 
 ---
 
@@ -115,15 +116,15 @@ El sistema admite dos perfiles de ejecución:
 #### **CU-01: Registro e Inicio de Sesión de Usuario**
 
 > [!NOTE]
-> Este caso de uso asegura el flujo de acceso seguro a la plataforma validando roles.
+> La demo verifica credenciales con BCrypt y muestra el panel del rol. La autorización del servidor para cada endpoint permanece pendiente.
 
 | Elemento | Descripción |
 | :--- | :--- |
 | **Actor Principal** | Cliente, Organizador o Administrador. |
-| **Objetivo** | Registrarse en la plataforma o autenticarse para obtener un token/sesión que habilite las funciones del rol correspondiente. |
+| **Objetivo** | Registrarse o validar credenciales para acceder a la vista del rol. La demo guarda el perfil en `butaca-auth-user` del navegador; no emite sesiones ni tokens de acceso del servidor. |
 | **Requisito Asociado**| RF1 - Gestión de Cuentas y Seguridad. |
 | **Precondición** | El usuario debe contar con un correo válido no registrado previamente si es un flujo de registro. |
-| **Flujo Principal** | 1. El usuario accede al formulario (Registro o Login).<br>2. **Registro:** El usuario ingresa nombre, apellido, email, contraseña, teléfono y selecciona rol. El sistema encripta la clave mediante BCrypt y persiste al usuario asignándole su rol correspondiente.<br>3. **Login:** El usuario ingresa email y contraseña.<br>4. El sistema valida la contraseña encriptada comparándola con la de la base de datos.<br>5. El sistema responde con el perfil del usuario (nombre, email, rol) y redirige a la vista correspondiente. |
+| **Flujo Principal** | 1. El usuario accede al formulario de registro o login.<br>2. En el registro ingresa sus datos personales, DNI, email y contraseña. La interfaz registra clientes; el backend admite un rol válido en la solicitud.<br>3. El servidor guarda un hash BCrypt de la contraseña y el usuario asociado a su rol.<br>4. En el login verifica email y contraseña contra la cuenta.<br>5. Devuelve el perfil y la interfaz muestra el panel correspondiente. |
 | **Flujos de Excepción**| **E1 (Correo duplicado):** Si el email ya existe en `usuario`, la base de datos rechaza el registro lanzando una excepción controlada que se informa en la interfaz.<br>**E2 (Credenciales inválidas):** Si el correo o la contraseña no coinciden, se retorna error de credenciales incorrectas. |
 | **Persistencia (BD)** | **Registro:** `INSERT INTO usuario (nombre_usuario, apellido_usuario, email_usuario, password_hash_usuario, id_rol, estado_usuario) VALUES (...)`. `id_rol` referencia una fila de `rol`. |
 
@@ -139,7 +140,7 @@ El sistema admite dos perfiles de ejecución:
 | **Actor Principal** | Organizador. |
 | **Objetivo** | Registrar un nuevo espectáculo asociándolo a una categoría, una ubicación válida y definir su stock y precio de entradas. |
 | **Requisito Asociado**| RF2, RF5. |
-| **Precondición** | La categoría y la ubicación física ya deben existir y estar activas en el sistema. |
+| **Precondición** | La categoría y la ubicación física deben existir; la ubicación debe estar activa. |
 | **Flujo Principal** | 1. El Organizador abre su panel de gestión y presiona "Crear Evento".<br>2. Completa los datos: título, descripción, fecha, hora, precio, cupos totales, imagen y selecciona la ubicación y categoría.<br>3. El sistema valida que los `cupos_totales_evento` sean menores o iguales a la `capacidad_maxima` de la ubicación.<br>4. El Organizador elige el estado: guardar como `BORRADOR` o `PUBLICADO` inmediatamente.<br>5. El sistema persiste el evento y, si fue publicado, se vuelve visible en el catálogo de los clientes. |
 | **Flujos de Excepción**| **E1 (Capacidad excedida):** Si los cupos del evento superan la capacidad física de la ubicación, el sistema rechaza la operación informando el límite máximo permitido.<br>**E2 (Fecha inválida):** Si la fecha del evento es anterior al día actual, el validador del backend rechaza la persistencia. |
 | **Persistencia (BD)** | `INSERT INTO evento (titulo_evento, precio_actual_entrada, cupo_total_evento, estado_evento, id_categoria, id_ubicacion, id_organizador, version_evento) VALUES (..., ?, ?, 'BORRADOR'/'PUBLICADO', ?, ?, ?, 0)`. |
@@ -156,8 +157,8 @@ El sistema admite dos perfiles de ejecución:
 | **Actor Principal** | Cliente. |
 | **Objetivo** | Adquirir una o más entradas para un espectáculo con disponibilidad de cupos, registrando la transacción y emitiendo los tickets UUID. |
 | **Requisito Asociado**| RF3, RF4. |
-| **Precondición** | El evento debe estar en estado `PUBLICADO`, contar con stock y el cliente debe estar autenticado. |
-| **Flujo Principal** | 1. El cliente inicia sesión y navega al catálogo.<br>2. Selecciona un evento y una cantidad.<br>3. Confirma la compra simulada, sin ingresar datos bancarios.<br>4. El servicio bloquea optimistamente el evento y cuenta sus entradas vigentes.<br>5. Si hay cupo, inserta una cabecera de `compra` con cliente, fecha y estado.<br>6. Genera una fila en `entrada` por cada unidad, con UUID y precio histórico.<br>7. Registra la emisión en `historial_estado_entrada`.<br>8. Crea una `notificacion` y devuelve cantidad y total calculados. |
+| **Precondición** | El evento debe estar `PUBLICADO`, tener stock y el comprador debe ser un usuario activo con identidad `VERIFICADA`. |
+| **Flujo Principal** | 1. El cliente inicia sesión y navega al catálogo.<br>2. Selecciona un evento y una cantidad.<br>3. Completa KYC simulado si corresponde y declara nombre/DNI de cada asistente.<br>4. El servidor valida identidad, estado, cupo y precio con bloqueo optimista.<br>5. Procesa el pago simulado y cruza el monto autorizado.<br>6. Registra compra, pago y entradas nominales con UUID y precio histórico.<br>7. Emite un comprobante con hash SHA-256 y registra historial, notificación y auditoría.<br>8. Devuelve cantidad y total calculados desde las entradas. |
 | **Flujos de Excepción**| **E1 (Cupos agotados):** Si no hay stock suficiente, el sistema bloquea el flujo.<br>**E2 (Conflicto de Concurrencia):** Si dos transacciones intentan comprar simultáneamente el último cupo, el motor JPA intercepta la colisión mediante el campo `version` del evento, fallando la segunda de forma segura y deshaciendo el descuento de inventario (Rollback) para evitar sobreventa. |
 | **Persistencia (BD)** | 1. `SELECT evento ...` con bloqueo optimista y conteo de `entrada` vigente.<br>2. `INSERT INTO compra (fecha_compra, estado_compra, id_cliente) VALUES (NOW(), 'CONFIRMADA', ?)`.<br>3. Por cada ticket: `INSERT INTO entrada (codigo_unico_entrada, estado_entrada, precio_pagado_entrada, fecha_emision_entrada, id_evento, id_cliente, id_compra) VALUES (...)`.<br>4. Se insertan las filas de historial y la notificación en la misma transacción. |
 
@@ -188,7 +189,7 @@ El sistema admite dos perfiles de ejecución:
 | **Requisito Asociado**| RF3. |
 | **Precondición** | El ticket debe existir en la base de datos. |
 | **Flujo Principal** | 1. El personal ingresa o escanea el UUID.<br>2. El sistema busca el ticket en `entrada`.<br>3. Comprueba que esté `CONFIRMADA`.<br>4. Cambia el estado a `USADA`, registra `fecha_validacion_entrada` e inserta el cambio en `historial_estado_entrada`, todo dentro de la misma transacción. |
-| **Flujos de Excepción**| **E1 (Entrada Inexistente):** Si el código UUID no se encuentra en el sistema, se muestra la alerta: "Ticket Inválido o Falso".<br>**E2 (Entrada Ya Usada):** Si el estado del ticket es `USADA`, el sistema responde: **"Acceso Denegado: Entrada ya utilizada"** junto con la fecha y hora en la que fue validada originalmente.<br>**E3 (Evento Cancelado):** Si el estado es `ANULADA` (debido a la cancelación del evento), el sistema niega el acceso. |
+| **Flujos de Excepción**| **E1 (Entrada inexistente):** La consulta de un UUID desconocido devuelve un error.<br>**E2 (Entrada usada o anulada):** La operación de uso rechaza cualquier entrada cuyo estado no sea `CONFIRMADA`. El dato nominal se contrasta visualmente con el DNI físico; el endpoint de uso actual no recibe un DNI para compararlo. |
 | **Persistencia (BD)** | `SELECT * FROM entrada WHERE codigo_unico_entrada = ?`<br>`UPDATE entrada SET estado_entrada = 'USADA', fecha_validacion_entrada = NOW() WHERE id_entrada = ?`<br>`INSERT INTO historial_estado_entrada (...) VALUES (...)`. |
 
 ---
@@ -220,4 +221,4 @@ El sistema admite dos perfiles de ejecución:
 
 ### **4.3 Diagrama Descriptivo de la Base de Datos**
 
-El diagrama físico editable que mapea las 9 tablas normalizadas en 3FN se entrega en [`butaca.dbml`](butaca.dbml) y puede abrirse en dbdiagram.io. La explicación en Mermaid se encuentra en [`docs/normalizacion-base-datos.md`](docs/normalizacion-base-datos.md).
+El modelo de las 13 entidades normalizadas en 3FN se entrega en [`butaca.dbml`](butaca.dbml). La explicación en Mermaid se encuentra en [`docs/normalizacion-base-datos.md`](docs/normalizacion-base-datos.md) y el diagrama editable en [`diagrama Butaca.drawio`](diagrama%20Butaca.drawio).

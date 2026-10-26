@@ -1,7 +1,5 @@
 import { request } from "./apiClient";
 
-export const useMockOrders = false;
-
 const AUTH_STORAGE_KEY = "butaca-auth-user";
 
 function getStoredUser() {
@@ -10,15 +8,6 @@ function getStoredUser() {
 }
 
 export async function createOrder(orderData) {
-  if (useMockOrders) {
-    return {
-      codigoReserva: `BTC-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-      total: orderData.total,
-      comprador: orderData.comprador,
-      entradas: []
-    };
-  }
-
   const storedUser = getStoredUser();
   const usuarioId = orderData.usuarioId || storedUser?.id_usuario || storedUser?.id;
   const payload = {

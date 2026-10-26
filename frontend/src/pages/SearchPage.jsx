@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import EventGrid from "../components/events/EventGrid";
 import SectionTitle from "../components/ui/SectionTitle";
-import { categoryOptions as fallbackCategoryOptions } from "../data/mockEvents";
+import { categoryOptions as fallbackCategoryOptions } from "../data/categories";
 import { getAllEvents, getCategories } from "../services/eventService";
 
 function SearchPage() {

@@ -3,7 +3,7 @@ import HeroSection from "../components/home/HeroSection";
 import CategoryTabs from "../components/home/CategoryTabs";
 import EventGrid from "../components/events/EventGrid";
 import SectionTitle from "../components/ui/SectionTitle";
-import { categoryOptions as fallbackCategoryOptions } from "../data/mockEvents";
+import { categoryOptions as fallbackCategoryOptions } from "../data/categories";
 import { getAllEvents, getCategories } from "../services/eventService";
 
 function HomePage({ currentUser }) {
