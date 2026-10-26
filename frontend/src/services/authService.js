@@ -1,58 +1,6 @@
 import { request } from "./apiClient";
 
-export const useMockAuth = false;
-
-const mockUsers = [
-  {
-    id: 1,
-    nombre: "Leandro",
-    apellido: "Gramajo Gargiulo",
-    dni: "33444555",
-    email: "organizador@butaca.local",
-    password: "clave123",
-    rol: "ORGANIZADOR",
-    identidad_verificada: true,
-    estado_verificacion: "VERIFICADA"
-  },
-  {
-    id: 2,
-    nombre: "Mariano",
-    apellido: "Piovesan",
-    dni: "42850123",
-    email: "cliente@butaca.local",
-    password: "clave123",
-    rol: "CLIENTE",
-    identidad_verificada: true,
-    estado_verificacion: "VERIFICADA"
-  },
-  {
-    id: 3,
-    nombre: "Santiago",
-    apellido: "Gonzalez",
-    dni: "30111222",
-    email: "admin@butaca.local",
-    password: "clave123",
-    rol: "ADMIN",
-    identidad_verificada: true,
-    estado_verificacion: "VERIFICADA"
-  }
-];
-
 export async function loginUser(credentials) {
-  if (useMockAuth) {
-    const user = mockUsers.find(
-      (candidate) =>
-        candidate.email.toLowerCase() === credentials.email.trim().toLowerCase() &&
-        candidate.password === credentials.password
-    );
-
-    if (!user) {
-      throw new Error("Credenciales invalidas");
-    }
-
-    return normalizeAuthUser(user);
-  }
-
   const payload = {
     email_usuario: credentials.email_usuario || credentials.email,
     password_usuario: credentials.password_usuario || credentials.password
@@ -66,10 +14,6 @@ export async function loginUser(credentials) {
 }
 
 export async function registerUser(userData) {
-  if (useMockAuth) {
-    throw new Error("El registro requiere conexión real al backend");
-  }
-
   const payload = {
     nombre_usuario: userData.nombre_usuario || userData.nombre,
     apellido_usuario: userData.apellido_usuario || userData.apellido,

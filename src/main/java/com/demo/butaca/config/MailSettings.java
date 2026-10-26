@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public class MailSettings {
     private boolean enabled;
     private String from = "";
-    private String replyTo = "contact@leandro754.moe";
-    private String testRecipient = "contact@leandro754.moe";
+    private String replyTo = "";
+    private String testRecipient = "";
     private String publicUrl = "http://localhost:5173";
 }

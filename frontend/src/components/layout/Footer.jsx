@@ -48,7 +48,7 @@ function Footer() {
         </div>
       </div>
       <div className="container footer-bottom">
-        <span>Butaca · MLSN Group</span>
+        <span>Butaca</span>
         <span>Proyecto académico / Entradas nominales</span>
       </div>
     </footer>

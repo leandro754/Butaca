@@ -7,6 +7,7 @@ $appPassword = Read-Host 'Contraseña de aplicación de Google (se oculta al esc
 $credential = [System.Net.NetworkCredential]::new($Account, $appPassword)
 $password = $credential.Password.Replace(' ', '')
 $recipient = if ($TestRecipient) { $TestRecipient } else { $Account }
+if ($recipient -notmatch '^[^\s@]+@[^\s@]+\.[^\s@]+$') { throw 'Ingresá un destinatario de prueba válido.' }
 $message = [System.Net.Mail.MailMessage]::new($Account, $recipient)
 $message.Subject = 'Butaca · Prueba real de correo'
 $message.SubjectEncoding = [System.Text.Encoding]::UTF8
@@ -24,8 +25,8 @@ function Escape-Property([string]$Value) { return $Value.Replace('\', '\\').Repl
 $properties = @(
     'butaca.mail.enabled=true'
     "butaca.mail.from=$(Escape-Property $Account)"
-    "butaca.mail.test-recipient=$recipient"
-    'butaca.mail.reply-to=contact@leandro754.moe'
+    "butaca.mail.test-recipient=$(Escape-Property $recipient)"
+    "butaca.mail.reply-to=$(Escape-Property $Account)"
     'spring.mail.host=smtp.gmail.com'
     'spring.mail.port=587'
     "spring.mail.username=$(Escape-Property $Account)"

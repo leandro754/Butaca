@@ -54,7 +54,7 @@ final class MailContent {
         String url = publicUrl.replaceAll("/+$", "") + "/dashboard";
         body.append("<table role='presentation' cellpadding='0' cellspacing='0' style='margin:4px 0 26px'><tr><td bgcolor='#b80b32' style='border-radius:5px'><a href='").append(esc(url))
                 .append("' style='display:inline-block;padding:15px 24px;color:#fff;text-decoration:none;font-size:14px;font-weight:bold'>Ver mis entradas</a></td></tr></table>")
-                .append("<p style='font-size:12px;line-height:1.6;color:#62666a;margin:0'>¿Necesitás ayuda? Respondé este correo o escribí a <a href='mailto:contact@leandro754.moe' style='color:#a40b2c'>contact@leandro754.moe</a>.</p>");
+                .append("<p style='font-size:12px;line-height:1.6;color:#62666a;margin:0'>Si necesitás ayuda, consultá el canal de soporte de la plataforma.</p>");
         String html = "<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta name='color-scheme' content='light'></head>"
                 + "<body style='margin:0;padding:24px 10px;background:#f3eee8;color:#17191b;font-family:Arial,Helvetica,sans-serif'><div style='display:none;max-height:0;overflow:hidden'>" + esc(title) + " - Butaca</div>"
                 + "<table role='presentation' align='center' width='100%' cellpadding='0' cellspacing='0' style='max-width:640px;margin:auto;background:#fff;border:1px solid #dfd6cf;border-radius:10px;overflow:hidden'>"

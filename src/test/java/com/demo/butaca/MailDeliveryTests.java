@@ -31,21 +31,41 @@ class MailDeliveryTests {
     NotificacionRepository notifications = mock(NotificacionRepository.class);
     ComprobanteRepository receipts = mock(ComprobanteRepository.class);
     MailSettings settings = new MailSettings();
+
+    @org.junit.jupiter.api.BeforeEach
+    void configurarDestinosFicticios() {
+        settings.setTestRecipient("soporte@example.invalid");
+        settings.setReplyTo("soporte@example.invalid");
+    }
+
+    @Test void sinDestinatarioDePruebaNoContactaSmtp() {
+        settings.setEnabled(true);
+        settings.setFrom("remitente@example.invalid");
+        settings.setTestRecipient("");
+        Notificacion job = notification();
+        when(notifications.findById(1L)).thenReturn(Optional.of(job));
+
+        delivery().deliver(1L);
+
+        assertEquals(EstadoEnvioNotificacion.FALLIDA, job.getEstadoEnvio());
+        verifyNoInteractions(sender);
+    }
+
     MailBrandAssets brand = new MailBrandAssets();
     TicketImageService images = new TicketImageService(brand);
     ReceiptPdfService pdfs = new ReceiptPdfService(brand);
     MailDeliveryService delivery() { return new MailDeliveryService(sender, settings, notifications, receipts, images, brand, pdfs); }
 
     @Test void soloMarcaEnviadoTrasAceptarSmtpYRedirigeAlDestinatarioDePrueba() throws Exception {
-        settings.setEnabled(true); settings.setFrom("remitente@gmail.com");
+        settings.setEnabled(true); settings.setFrom("remitente@example.invalid");
         Notificacion job = notification();
         when(notifications.findById(1L)).thenReturn(Optional.of(job));
         MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
         when(sender.createMimeMessage()).thenReturn(message);
         doAnswer(invocation -> { assertEquals(EstadoEnvioNotificacion.PENDIENTE, job.getEstadoEnvio()); return null; }).when(sender).send(message);
         delivery().deliver(1L);
-        assertEquals("contact@leandro754.moe", message.getAllRecipients()[0].toString());
-        assertEquals("contact@leandro754.moe", message.getReplyTo()[0].toString());
+        assertEquals("soporte@example.invalid", message.getAllRecipients()[0].toString());
+        assertEquals("soporte@example.invalid", message.getReplyTo()[0].toString());
         assertEquals(1, message.getAllRecipients().length);
         assertEquals(EstadoEnvioNotificacion.ENVIADA, job.getEstadoEnvio());
         assertNotNull(job.getFechaEnvio());
@@ -53,7 +73,7 @@ class MailDeliveryTests {
     }
 
     @Test void errorSmtpNoDeshaceCompraYNoGuardaCredencialesEnElError() throws Exception {
-        settings.setEnabled(true); settings.setFrom("remitente@gmail.com");
+        settings.setEnabled(true); settings.setFrom("remitente@example.invalid");
         Notificacion job = notification();
         Compra purchase = Compra.builder().id(3L).estadoCompra(EstadoCompra.CONFIRMADA).entradas(List.of()).build();
         job.setCompra(purchase);
@@ -87,7 +107,7 @@ class MailDeliveryTests {
     }
 
     @Test void correoDeCompraAdjuntaEntradaNominalYReciboAntesDeMarcarEnviado() throws Exception {
-        settings.setEnabled(true); settings.setFrom("remitente@gmail.com");
+        settings.setEnabled(true); settings.setFrom("remitente@example.invalid");
         Evento event = Evento.builder().tituloEvento("Función de prueba").fechaEvento(LocalDate.now().plusDays(2)).horaEvento(LocalTime.of(20, 30))
                 .ubicacion(Ubicacion.builder().nombreLugar("Teatro de prueba").build()).build();
         Entrada ticket = Entrada.builder().idEntrada(8L).evento(event).codigoUnicoEntrada(UUID.randomUUID())

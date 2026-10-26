@@ -4,12 +4,12 @@ Guion de trabajo para la versiÃ³n integrada de 16 entidades. Ensayar con las c
 
 | Tiempo | Responsable | Recorrido |
 | --- | --- | --- |
-| 0:00â€“2:00 | Mariano | CatÃ¡logo, selecciÃ³n de tarifa, compra nominal y descarga de QR |
-| 2:00â€“3:30 | Santiago | Actores, alcance y separaciÃ³n de paneles |
-| 3:30â€“5:30 | Ignacio | Modelo DrawDB de 16 entidades, persona y precio histÃ³rico |
-| 5:30â€“7:30 | Leandro | KYC simulado, cruce de integridad y auditorÃ­a |
-| 7:30â€“9:15 | Mariano | EdiciÃ³n de tarifas, cancelaciÃ³n y resultados de pruebas |
-| 9:15â€“10:00 | Santiago | Pendientes y prÃ³ximos pasos |
+| 0:00â€“2:00 | Interfaz y demostracion | CatÃ¡logo, selecciÃ³n de tarifa, compra nominal y descarga de QR |
+| 2:00â€“3:30 | Presentacion funcional | Actores, alcance y separaciÃ³n de paneles |
+| 3:30â€“5:30 | Modelo y datos | Modelo DrawDB de 16 entidades, persona y precio histÃ³rico |
+| 5:30â€“7:30 | Integridad y auditoria | KYC simulado, cruce de integridad y auditorÃ­a |
+| 7:30â€“9:15 | Interfaz y demostracion | EdiciÃ³n de tarifas, cancelaciÃ³n y resultados de pruebas |
+| 9:15â€“10:00 | Presentacion funcional | Pendientes y prÃ³ximos pasos |
 
 ## PreparaciÃ³n
 

@@ -107,6 +107,11 @@ pnpm run build
 
 ## Documentacion
 
+- No incluir nombres reales del equipo, teléfonos, correos, dominios personales ni identificadores reales en archivos versionados o datos de prueba.
+- Usar roles genéricos y datos sintéticos; los correos de prueba nuevos deben usar el dominio reservado `example.invalid`.
+- Configurar remitente, destinatario de pruebas y credenciales SMTP mediante variables de entorno o `secrets/mail.properties`, ignorado por Git.
+- Usar identidad genérica del proyecto para nuevos commits. Reescribir historial compartido requiere autorización explícita y coordinación entre equipos.
+
 Al cambiar contratos, actualizar:
 
 - `README.md`

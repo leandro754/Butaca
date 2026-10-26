@@ -18,18 +18,20 @@ El archivo `secrets/mail.properties` está ignorado por Git y tiene permisos loc
 | --- | --- |
 | `MAIL_ENABLED` | `true` para activar el trabajador |
 | `MAIL_FROM` | Cuenta remitente autorizada |
-| `MAIL_REPLY_TO` | Dirección de respuesta; por defecto `contact@leandro754.moe` |
+| `MAIL_REPLY_TO` | Dirección de respuesta opcional, vacía por defecto |
 | `SMTP_HOST`, `SMTP_PORT` | Servidor y puerto; Gmail usa `smtp.gmail.com:587` |
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | Cuenta y contraseña de aplicación |
 | `SMTP_STARTTLS`, `SMTP_SSL` | Gmail: `true` y `false`, respectivamente |
-| `MAIL_TEST_RECIPIENT` | Destino fijo para pruebas; el archivo generado por el configurador usa la cuenta Gmail elegida |
+| `MAIL_TEST_RECIPIENT` | Destino fijo obligatorio al habilitar SMTP; el configurador usa la cuenta remitente si no se indica otro |
 | `BUTACA_PUBLIC_URL` | URL incluida en los enlaces; por defecto `http://localhost:5173` |
 
 Si se usa el archivo local, sus propiedades específicas prevalecen sobre los valores predeterminados que remiten a variables. Borrar o editar ese archivo para cambiar de configuración.
 
 Cloudflare Routing recibe/redirige mensajes. Cloudflare también documenta un producto separado de envío con SMTP y token, pero no es necesario para esta implementación de prueba. [SMTP Cloudflare](https://developers.cloudflare.com/email-service/api/send-emails/smtp/).
 
-Si el remitente Gmail envía al alias de Cloudflare y este redirige al mismo Gmail, el destinatario puede descartar la copia. Cloudflare recomienda probar las reglas desde una cuenta diferente del destino. Para la demo usamos entrega directa al Gmail del usuario y `Reply-To: contact@leandro754.moe`; no se modifican sus reglas de recepción. [Limitación de la prueba con redirección](https://developers.cloudflare.com/email-service/get-started/route-emails/#test-your-routing-rule).
+Si el remitente envía a un alias que redirige hacia la misma cuenta, el proveedor puede descartar la copia. Probar las reglas desde una cuenta distinta del destino o configurar un destinatario directo. El remitente, la dirección de respuesta y el destinatario se definen localmente; el repositorio no incorpora contactos personales. [Limitación de la prueba con redirección](https://developers.cloudflare.com/email-service/get-started/route-emails/#test-your-routing-rule).
+
+Para proteger los datos de prueba, SMTP requiere un destinatario explícito: si falta, el envío falla antes de contactar al servidor. Nunca se utiliza automáticamente el correo de un comprador como destino alternativo. Las credenciales permanecen fuera de Git.
 
 ## Qué se envía y cuándo
 

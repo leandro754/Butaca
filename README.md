@@ -1,6 +1,6 @@
 # Butaca
 
-Plataforma académica de gestión de eventos y venta simulada de entradas nominales. Desarrollada por **MLSN Group** con Java 17, Spring Boot, React y una API REST bajo `/api`.
+Plataforma académica de gestión de eventos y venta simulada de entradas nominales. Desarrollada con Java 17, Spring Boot, React y una API REST bajo `/api`.
 
 El circuito principal incluye registro, verificación de identidad, compra, pago simulado, emisión de tickets QR y consulta por rol. Se conservan las tarifas por evento, los reembolsos simulados y la cola de correo SMTP opcional. El modelo relacional tiene **16 entidades**; cada entrada conserva su precio histórico y los datos de su asistente.
 
@@ -126,9 +126,6 @@ El frontend compilado se genera en `frontend/dist/`; Maven lo copia a `target/cl
 - [Guía para la demo y consultas SQL](docs/guia-presentacion.md).
 - [Plan de exposición de diez minutos](docs/plan-exposicion-10-minutos.md).
 
-## Equipo
-
-Mariano Piovesan · Leandro Gramajo Gargiulo · Santiago González Fernández · Ignacio Molina Tula.
 
 ## Trabajo desde dos equipos
 

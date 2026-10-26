@@ -2,13 +2,6 @@
 
 ## **Documento de Especificación de Requerimientos de Software (SRS)**
 
-### **Integrantes (MLSN Group):**
-*   **Mariano Piovesan** (Desarrollador de Interfaz y Pruebas)
-*   **Leandro Gramajo Gargiulo** (Scrum Master)
-*   **Santiago González Fernández** (Product Owner)
-*   **Ignacio Molina Tula** (Desarrollador de Sistema y Base de Datos)
-
----
 
 ### **Versión:** 2.6
 ### **Fecha:** 26 de octubre de 2026
@@ -19,7 +12,7 @@
 ## **1. Introducción**
 
 ### **1.1 Propósito**
-El presente documento tiene como finalidad definir y especificar de forma rigurosa y formal los requerimientos funcionales y no funcionales que rigen el sistema **BUTACA**. Está dirigido al equipo de desarrollo MLSN Group y a los evaluadores académicos del proyecto, proporcionando una visión fiel al estado técnico e implementación real de la plataforma.
+El presente documento tiene como finalidad definir y especificar de forma rigurosa y formal los requerimientos funcionales y no funcionales que rigen el sistema **BUTACA**. Está dirigido al equipo de desarrollo y a los evaluadores académicos del proyecto, proporcionando una visión fiel al estado técnico e implementación real de la plataforma.
 
 ### **1.2 Ámbito del Sistema**
 La fuente del modelo es DrawDB `butaca-modelado-datos`. Los requisitos de seguridad son objetivos del sistema: la demo actual no implementa autorización por sesión y rol en la API; KYC y pagos siguen simulados. El correo usa SMTP real al configurar una cuenta remitente y concentra las pruebas en un destinatario fijo configurable; la configuración local usa entrega directa al Gmail del usuario para evitar el reenvío de Cloudflare a la misma cuenta. Ver [correo y gestión de eventos](docs/correo-real-y-eventos.md).
@@ -38,7 +31,7 @@ La fuente del modelo es DrawDB `butaca-modelado-datos`. Los requisitos de seguri
 *   **UUID:** Identificador único utilizado para consultar la validez de cada ticket en el servidor. El QR representa ese identificador; no sustituye la comprobación de estado, autorización y titularidad.
 
 ### **1.4 Referencias**
-*   **MLSN Group:** "Entregables del Taller Integrador de Ingeniería Informática".
+*   **Equipo de desarrollo:** "Entregables del Taller Integrador de Ingeniería Informática".
 *   **Norma IEEE 830-1998:** Prácticas recomendadas para especificaciones de requerimientos de software.
 *   **Documento de Normalización Local:** `docs/normalizacion-base-datos.md`.
 *   **Reglas de Trabajo de Agentes:** `AGENTS.MD`.
@@ -216,19 +209,13 @@ El sistema admite dos perfiles de ejecución:
 
 ## **4. Apéndices**
 
-### **4.1 Equipo de Trabajo: MLSN Group**
-*   **Mariano Piovesan** (Desarrollador frontend, encargado de las vistas interactivas en React y la integración con la API).
-*   **Leandro Gramajo Gargiulo** (Scrum Master, responsable de metodologías de trabajo ágiles y control de calidad operativa).
-*   **Santiago González Fernández** (Product Owner, encargado de definir requerimientos, reglas de negocio y priorización de funcionalidades).
-*   **Ignacio Molina Tula** (Desarrollador backend, diseñador del modelo relacional 3FN y lógica transaccional de persistencia).
+### **4.1 Responsabilidades**
 
-### **4.2 Contacto**
-*   **Responsable de Documentación:** Santiago González Fernández.
-*   **Teléfono de contacto:** `+54 3816288749`
+El equipo distribuye el trabajo entre desarrollo de interfaz, desarrollo de servicios y datos, pruebas, gestion del proyecto y documentacion. La documentacion publica no identifica personas ni incluye datos de contacto particulares.
 
-### **4.3 Diagrama Descriptivo de la Base de Datos**
+### **4.2 Diagrama Descriptivo de la Base de Datos**
 
-La fuente editable vigente es [DrawDB: butaca-modelado-datos](https://drawdb.leandro754.moe/editor/diagrams/butaca-modelado-datos), con 16 entidades en 3FN. Los archivos Draw.io/DBML y las guías históricas deben contrastarse con esa fuente antes de usarse como DDL. El README incluye el resumen vigente de relaciones.
+La fuente editable vigente es [diagrama de referencia de DrawDB](docs/drawdb-butaca-modelado-datos.json), con 16 entidades en 3FN. Los archivos Draw.io/DBML y las guías históricas deben contrastarse con esa fuente antes de usarse como DDL. El README incluye el resumen vigente de relaciones.
 
 ## Integracion de las dos lineas de trabajo
 

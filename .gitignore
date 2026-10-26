@@ -63,3 +63,6 @@ frontend/yarn.lock
 *.token
 tokens/
 secrets/
+backups/
+*.bak
+*.log

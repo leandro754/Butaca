@@ -36,7 +36,8 @@ public class MailDeliveryService {
                 : receipts.findByPagoCompraId(notification.getCompra().getId()).orElse(null);
         try {
             if (settings.getFrom().isBlank()) throw new IllegalStateException("Falta configurar el remitente SMTP");
-            String recipient = settings.getTestRecipient().isBlank() ? notification.getUsuario().getEmailUsuario() : settings.getTestRecipient();
+            if (settings.getTestRecipient().isBlank()) throw new IllegalStateException("Falta configurar el destinatario de prueba SMTP");
+            String recipient = settings.getTestRecipient();
             MimeMessage message = sender.createMimeMessage();
             MimeMessageHelper mail = new MimeMessageHelper(message, true, "UTF-8");
             mail.setFrom(settings.getFrom(), "Butaca");
